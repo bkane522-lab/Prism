@@ -3,103 +3,106 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>PRISM — Extracteur audio</title>
+<title>Prism — Extracteur audio</title>
+<meta name="description" content="Extrais et convertis la piste audio de tes fichiers, directement dans le navigateur.">
+<meta name="theme-color" content="#04020a">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@300;500;700&family=Space+Grotesk:wght@300;400;500;700&display=swap" rel="stylesheet">
 <style>
 :root{
   --void:#04020a;
-  --ink:#0a0616;
-  --panel:rgba(255,255,255,.035);
   --edge:rgba(168,120,255,.28);
   --violet:#b14cff;
   --indigo:#5f5bff;
   --cyan:#22d3ee;
   --text:#ece7ff;
   --muted:#8a82b4;
+  --dim:#5c5482;
   --radius:999px;
   --card:22px;
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0;background:var(--void);color:var(--text);
-  font-family:"Space Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif;
-  -webkit-font-smoothing:antialiased;}
-body{min-height:100vh;display:flex;justify-content:center;padding:0 0 64px;}
-body::before{
-  content:"";position:fixed;inset:-20%;pointer-events:none;z-index:0;
+  font-family:"Space Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+body{min-height:100vh;display:flex;justify-content:center;padding:0 0 72px}
+body::before{content:"";position:fixed;inset:-20%;pointer-events:none;z-index:0;
   background:
     radial-gradient(52% 38% at 78% 8%, rgba(56,132,255,.30), transparent 62%),
     radial-gradient(60% 45% at 22% 46%, rgba(177,76,255,.26), transparent 65%),
     radial-gradient(48% 34% at 88% 74%, rgba(34,211,238,.14), transparent 68%);
-  filter:blur(28px);
-}
-.shell{position:relative;z-index:1;width:100%;max-width:460px;padding:28px 20px 0;}
+  filter:blur(28px)}
+.shell{position:relative;z-index:1;width:100%;max-width:470px;padding:26px 20px 0}
 
-/* ---------- en-tête ---------- */
+/* en-tête */
 .status{display:flex;justify-content:space-between;font-size:11px;letter-spacing:.16em;
-  color:var(--muted);text-transform:uppercase;margin-bottom:34px}
-.status b{font-weight:500;color:#cfc6ff}
+  color:var(--muted);text-transform:uppercase;margin-bottom:32px}
 h1{font-family:"Chakra Petch",sans-serif;font-weight:300;font-size:34px;letter-spacing:.42em;
-  text-align:center;margin:0 0 10px 0;text-indent:.42em;
+  text-align:center;margin:0 0 10px;text-indent:.42em;
   text-shadow:0 0 26px rgba(177,76,255,.55),0 0 60px rgba(95,91,255,.35)}
-.tagline{text-align:center;color:var(--muted);font-size:13px;line-height:1.5;margin:0 0 30px}
+.tagline{text-align:center;color:var(--muted);font-size:13px;line-height:1.55;margin:0 0 26px}
 
-/* ---------- briques ---------- */
-.pill,.card{
-  border:1px solid var(--edge);border-radius:var(--radius);
-  background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.015));
-  backdrop-filter:blur(6px);
-}
-.card{border-radius:var(--card)}
-.eyebrow{font-size:10px;letter-spacing:.28em;text-transform:uppercase;color:#9d92d6;
-  margin:30px 0 12px;padding-left:16px}
+/* briques */
+.eyebrow{display:flex;align-items:center;gap:10px;font-size:10px;letter-spacing:.28em;
+  text-transform:uppercase;color:#9d92d6;margin:30px 0 12px;padding-left:16px}
 .row{display:flex;align-items:center;gap:12px;padding:15px 20px;margin-bottom:12px;
   border:1px solid var(--edge);border-radius:var(--radius);
-  background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.012));
-  font-size:14px}
+  background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.012));font-size:14px}
 .row .val{margin-left:auto;color:var(--muted);font-variant-numeric:tabular-nums;font-size:13px}
-.glow{box-shadow:0 0 0 1px rgba(177,76,255,.35),0 8px 34px -12px rgba(177,76,255,.75),
-  inset 0 -14px 26px -20px var(--violet)}
+.glow{box-shadow:0 0 0 1px rgba(177,76,255,.35),0 8px 34px -12px rgba(177,76,255,.75)}
+.stack{flex-direction:column;align-items:stretch}
+.note{font-size:12px;color:var(--muted);text-align:center;margin:10px 0 0;line-height:1.55}
+.note.err{color:#ff8fa8}
+.note.ok{color:#7ff2e0}
+.hidden{display:none !important}
 
-/* ---------- zone de dépôt ---------- */
+/* import */
 #drop{position:relative;display:block;width:100%;padding:38px 24px;text-align:center;cursor:pointer;
-  border:1px dashed rgba(168,120,255,.45);border-radius:var(--card);overflow:hidden;
-  background:linear-gradient(180deg,rgba(177,76,255,.10),rgba(34,211,238,.05));
-  transition:.25s}
+  border:1px dashed rgba(168,120,255,.45);border-radius:var(--card);
+  background:linear-gradient(180deg,rgba(177,76,255,.10),rgba(34,211,238,.05));transition:.25s}
 #drop:hover,#drop.hot{border-color:var(--cyan);
   box-shadow:0 0 40px -10px rgba(34,211,238,.6),inset 0 0 60px -30px var(--violet)}
+#drop:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{
+  outline:2px solid var(--cyan);outline-offset:3px}
 #drop .big{font-family:"Chakra Petch",sans-serif;letter-spacing:.2em;font-size:15px;text-transform:uppercase}
 #drop .small{color:var(--muted);font-size:12px;margin-top:8px;line-height:1.5}
 #file{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;clip:rect(0 0 0 0);border:0;padding:0}
 
-/* ---------- lien externe ---------- */
-.url-row{display:flex;align-items:center;gap:8px;margin-top:12px;padding:6px 6px 6px 18px}
-#url{flex:1;min-width:0;font:inherit;font-size:13px;color:var(--text);background:transparent;border:0;outline:none}
-#url::placeholder{color:#5c5482}
+.url-row{display:flex;align-items:center;gap:8px;padding:6px 6px 6px 18px}
+input[type=text],input[type=url]{flex:1;min-width:0;font:inherit;font-size:13px;color:var(--text);
+  background:transparent;border:0;outline:none}
+input::placeholder{color:var(--dim)}
 .mini{flex:0 0 auto;padding:11px 18px;font:inherit;font-size:11px;letter-spacing:.18em;text-transform:uppercase;
   color:#fff;cursor:pointer;border:1px solid rgba(34,211,238,.5);border-radius:var(--radius);
   background:linear-gradient(90deg,rgba(34,211,238,.22),rgba(177,76,255,.22));transition:.2s}
 .mini:hover{box-shadow:0 0 24px -8px var(--cyan)}
-.sep{display:flex;align-items:center;gap:12px;margin:16px 2px 0;color:#5c5482;font-size:10px;letter-spacing:.28em}
+.mini.ghost{background:transparent;border-color:var(--edge);color:var(--muted)}
+.sep{display:flex;align-items:center;gap:12px;margin:16px 2px 0;color:var(--dim);font-size:10px;letter-spacing:.28em}
 .sep::before,.sep::after{content:"";flex:1;height:1px;background:rgba(168,120,255,.22)}
 
-/* ---------- onde ---------- */
+/* onde */
 .wave-wrap{position:relative;margin:14px 0 6px;padding:16px 14px 12px;border-radius:var(--card);
   border:1px solid var(--edge);background:radial-gradient(120% 100% at 50% 0%,rgba(95,91,255,.16),rgba(4,2,10,.6))}
 canvas{width:100%;height:110px;display:block}
 .wave-meta{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);
   letter-spacing:.1em;padding:6px 4px 0;font-variant-numeric:tabular-nums}
+.play{width:52px;height:52px;border-radius:50%;flex:0 0 auto;display:grid;place-items:center;
+  border:1px solid rgba(34,211,238,.5);background:radial-gradient(circle at 30% 30%,rgba(34,211,238,.35),rgba(10,6,22,.9));
+  color:#fff;cursor:pointer;box-shadow:0 0 30px -8px var(--cyan);font-size:15px}
 
-/* ---------- contrôles ---------- */
+/* contrôles */
 .seg{display:flex;gap:10px;margin-bottom:12px}
-.seg button{flex:1;padding:13px 8px;font:inherit;font-size:13px;letter-spacing:.12em;text-transform:uppercase;
+.seg button{flex:1;padding:13px 6px;font:inherit;font-size:12px;letter-spacing:.1em;text-transform:uppercase;
   color:var(--muted);background:rgba(255,255,255,.03);border:1px solid var(--edge);
   border-radius:var(--radius);cursor:pointer;transition:.2s}
 .seg button:hover{color:var(--text)}
 .seg button[aria-pressed="true"]{color:#fff;border-color:transparent;
   background:linear-gradient(90deg,rgba(177,76,255,.5),rgba(95,91,255,.35));
   box-shadow:0 0 26px -6px rgba(177,76,255,.9)}
+.seg button:disabled{opacity:.35;cursor:not-allowed}
 select{margin-left:auto;font:inherit;font-size:13px;color:var(--text);background:transparent;
   border:0;text-align:right;cursor:pointer;outline:none}
 select option{background:#120a24;color:var(--text)}
@@ -109,16 +112,34 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
   background:#fff;box-shadow:0 0 14px var(--cyan);cursor:pointer}
 input[type=range]::-moz-range-thumb{width:16px;height:16px;border:0;border-radius:50%;
   background:#fff;box-shadow:0 0 14px var(--cyan);cursor:pointer}
-.trim{padding:16px 20px}
-.trim label{display:flex;justify-content:space-between;font-size:11px;letter-spacing:.16em;
+.slider label{display:flex;justify-content:space-between;font-size:11px;letter-spacing:.16em;
   text-transform:uppercase;color:var(--muted);margin-bottom:10px}
-.trim + .trim{margin-top:-4px}
+.toggle{margin-left:auto;width:46px;height:26px;border-radius:999px;border:1px solid var(--edge);
+  background:rgba(255,255,255,.04);position:relative;cursor:pointer;flex:0 0 auto}
+.toggle::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;
+  background:var(--dim);transition:.2s}
+.toggle[aria-pressed="true"]{border-color:transparent;background:linear-gradient(90deg,var(--indigo),var(--violet))}
+.toggle[aria-pressed="true"]::after{left:23px;background:#fff;box-shadow:0 0 12px var(--cyan)}
 
-/* ---------- lecture + action ---------- */
-.play{width:52px;height:52px;border-radius:50%;flex:0 0 auto;display:grid;place-items:center;
-  border:1px solid rgba(34,211,238,.5);background:radial-gradient(circle at 30% 30%,rgba(34,211,238,.35),rgba(10,6,22,.9));
-  color:#fff;cursor:pointer;box-shadow:0 0 30px -8px var(--cyan);font-size:15px}
-.cta{display:block;width:100%;margin-top:22px;padding:19px;font:inherit;font-size:14px;
+/* zones Pro */
+.badge{font-size:9px;letter-spacing:.2em;padding:3px 8px;border-radius:999px;color:#fff;
+  background:linear-gradient(90deg,var(--indigo),var(--violet))}
+.pro-zone{position:relative}
+.pro-zone[data-locked="true"]{opacity:.42;filter:saturate(.4)}
+.pro-zone[data-locked="true"] *{pointer-events:none}
+.pro-zone[data-locked="true"]::after{content:"";position:absolute;inset:-4px;border-radius:var(--card);cursor:pointer;pointer-events:auto}
+
+/* extraits */
+#markList{list-style:none;margin:0 0 12px;padding:0}
+#markList li{display:flex;align-items:center;gap:10px;padding:12px 16px;margin-bottom:8px;font-size:13px;
+  border:1px solid var(--edge);border-radius:var(--radius);background:rgba(255,255,255,.03)}
+#markList .idx{font-size:11px;color:var(--cyan);letter-spacing:.14em}
+#markList .dur{margin-left:auto;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+#markList button{background:transparent;border:0;color:var(--dim);font:inherit;font-size:16px;cursor:pointer;padding:0 2px}
+#markList button:hover{color:#ff8fa8}
+
+/* action */
+.cta{display:block;width:100%;margin-top:6px;padding:19px;font:inherit;font-size:14px;
   letter-spacing:.26em;text-transform:uppercase;color:#fff;cursor:pointer;
   border:1px solid rgba(177,76,255,.6);border-radius:var(--radius);
   background:linear-gradient(90deg,rgba(95,91,255,.55),rgba(177,76,255,.55));
@@ -128,22 +149,23 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;border:0;border-radiu
 .bar{height:3px;border-radius:3px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:16px}
 .bar i{display:block;height:100%;width:0;border-radius:3px;
   background:linear-gradient(90deg,var(--violet),var(--cyan));box-shadow:0 0 18px var(--cyan);transition:width .18s}
-.note{font-size:12px;color:var(--muted);text-align:center;margin-top:12px;line-height:1.55}
-.note.err{color:#ff8fa8}
-a.dl{display:flex;align-items:center;gap:12px;margin-top:16px;padding:16px 20px;text-decoration:none;
+a.dl{display:flex;align-items:center;gap:12px;margin-top:14px;padding:16px 20px;text-decoration:none;
   color:var(--text);font-size:14px;border:1px solid rgba(34,211,238,.5);border-radius:var(--radius);
   background:linear-gradient(90deg,rgba(34,211,238,.16),rgba(177,76,255,.16));
   box-shadow:0 0 34px -14px var(--cyan)}
 a.dl .val{margin-left:auto;color:var(--cyan);font-size:12px;letter-spacing:.14em;text-transform:uppercase}
-.hidden{display:none !important}
-footer{text-align:center;color:#5c5482;font-size:11px;letter-spacing:.14em;margin-top:34px;text-transform:uppercase}
+
+/* pied */
+.legal{margin-top:34px;padding:18px 20px;border:1px solid rgba(168,120,255,.18);border-radius:var(--card);
+  font-size:11px;line-height:1.7;color:var(--dim)}
+footer{text-align:center;color:var(--dim);font-size:11px;letter-spacing:.14em;margin-top:26px;text-transform:uppercase}
 @media (prefers-reduced-motion:reduce){*{transition:none !important}}
 </style>
 </head>
 <body>
 <main class="shell">
 
-  <div class="status"><span><b id="clock">--:--</b></span><span id="engine">local · hors ligne</span></div>
+  <div class="status"><span id="clock">--:--</span><span id="engine">traitement local</span></div>
 
   <h1>PRISM</h1>
   <p class="tagline">Extrais la piste audio d'une vidéo, ou convertis un son.<br>Tout est traité dans ton navigateur, rien n'est envoyé.</p>
@@ -152,17 +174,16 @@ footer{text-align:center;color:#5c5482;font-size:11px;letter-spacing:.14em;margi
     <div class="big">Choisir un fichier</div>
     <div class="small">MP4 · MOV · WEBM · MKV · MP3 · M4A · WAV · OGG<br>touche ici pour ouvrir tes fichiers</div>
   </div>
-  <button class="mini" id="browseAll" style="width:100%;margin-top:10px">Parcourir tous les fichiers</button>
+  <button class="mini ghost" id="browseAll" style="width:100%;margin-top:10px">Parcourir tous les fichiers</button>
   <input id="file" type="file"
     accept="audio/*,video/*,.wav,.wave,.mp3,.m4a,.aac,.flac,.ogg,.opus,.aiff,.aif,.amr,.mp4,.mov,.mkv,.webm,.3gp">
-  <p class="note" id="pickNote">Tes sons WAV sont souvent rangés dans Enregistrements, Musique ou Download.</p>
 
-  <div class="sep">ou depuis un lien</div>
+  <div class="sep">ou depuis un lien direct</div>
   <div class="row url-row">
     <input id="url" type="url" placeholder="https://…/fichier.mp3" spellcheck="false" autocapitalize="off">
     <button class="mini" id="fetchBtn">Charger</button>
   </div>
-  <p class="note" id="urlNote">Le lien doit pointer vers un fichier direct (.mp3, .mp4, .wav…) sur un serveur qui autorise le CORS.</p>
+  <p class="note" id="urlNote">L'adresse doit pointer vers un fichier média direct que tu es autorisé à utiliser.</p>
 
   <section id="stage" class="hidden">
 
@@ -175,7 +196,7 @@ footer{text-align:center;color:#5c5482;font-size:11px;letter-spacing:.14em;margi
     </div>
 
     <div class="row" style="padding:12px 14px">
-      <button class="play" id="play" aria-label="Écouter">▶</button>
+      <button class="play" id="play" aria-label="Écouter la sélection">▶</button>
       <div style="display:flex;flex-direction:column;gap:4px">
         <span style="font-size:13px">Écouter la sélection</span>
         <span class="val" id="selInfo" style="margin:0;font-size:11px;letter-spacing:.1em">—</span>
@@ -183,23 +204,40 @@ footer{text-align:center;color:#5c5482;font-size:11px;letter-spacing:.14em;margi
     </div>
 
     <div class="eyebrow">Découpe</div>
-    <div class="row trim" style="flex-direction:column;align-items:stretch">
+    <div class="row stack slider">
       <label>Début <span id="startLbl">0:00</span></label>
-      <input type="range" id="start" min="0" max="1000" value="0">
+      <input type="range" id="start" min="0" max="1000" value="0" aria-label="Début de l'extrait">
     </div>
-    <div class="row trim" style="flex-direction:column;align-items:stretch">
+    <div class="row stack slider">
       <label>Fin <span id="endLbl">0:00</span></label>
-      <input type="range" id="end" min="0" max="1000" value="1000">
+      <input type="range" id="end" min="0" max="1000" value="1000" aria-label="Fin de l'extrait">
+    </div>
+
+    <div class="eyebrow">Traitement <span class="badge">PRO</span></div>
+    <div class="pro-zone" data-locked="true" id="zoneFx">
+      <div class="row stack slider">
+        <label>Fondu d'entrée <span id="fadeInLbl">0,0 s</span></label>
+        <input type="range" id="fadeIn" min="0" max="100" value="0" aria-label="Fondu d'entrée">
+      </div>
+      <div class="row stack slider">
+        <label>Fondu de sortie <span id="fadeOutLbl">0,0 s</span></label>
+        <input type="range" id="fadeOut" min="0" max="100" value="0" aria-label="Fondu de sortie">
+      </div>
+      <div class="row">
+        <span>Normaliser le volume</span>
+        <button class="toggle" id="norm" aria-pressed="false" aria-label="Normaliser le volume"></button>
+      </div>
     </div>
 
     <div class="eyebrow">Sortie</div>
     <div class="seg" id="fmt">
       <button data-fmt="mp3" aria-pressed="true">MP3</button>
       <button data-fmt="wav" aria-pressed="false">WAV</button>
+      <button data-fmt="m4a" aria-pressed="false" id="btnM4a">MP4</button>
     </div>
 
     <div class="row" id="rowRate"><span>Débit</span>
-      <select id="kbps">
+      <select id="kbps" aria-label="Débit">
         <option value="320">320 kbps</option>
         <option value="256">256 kbps</option>
         <option value="192" selected>192 kbps</option>
@@ -207,9 +245,8 @@ footer{text-align:center;color:#5c5482;font-size:11px;letter-spacing:.14em;margi
         <option value="96">96 kbps</option>
       </select>
     </div>
-
     <div class="row"><span>Échantillonnage</span>
-      <select id="sr">
+      <select id="sr" aria-label="Échantillonnage">
         <option value="0" selected>Identique à la source</option>
         <option value="48000">48 000 Hz</option>
         <option value="44100">44 100 Hz</option>
@@ -218,9 +255,8 @@ footer{text-align:center;color:#5c5482;font-size:11px;letter-spacing:.14em;margi
         <option value="16000">16 000 Hz</option>
       </select>
     </div>
-
     <div class="row"><span>Canaux</span>
-      <select id="ch">
+      <select id="ch" aria-label="Canaux">
         <option value="0" selected>Identique à la source</option>
         <option value="2">Stéréo</option>
         <option value="1">Mono</option>
@@ -231,67 +267,104 @@ footer{text-align:center;color:#5c5482;font-size:11px;letter-spacing:.14em;margi
     <div class="bar"><i id="prog"></i></div>
     <p class="note" id="note">Prêt.</p>
     <a class="dl hidden" id="dl" download>Télécharger<span class="val" id="dlSize"></span></a>
+
+    <div class="eyebrow">Extraits multiples <span class="badge">PRO</span></div>
+    <div class="pro-zone" data-locked="true" id="zoneMarks">
+      <ul id="markList"></ul>
+      <button class="mini ghost" id="addMark" style="width:100%">Ajouter la sélection à la liste</button>
+      <button class="cta" id="exportAll" style="margin-top:12px">Tout exporter en .zip</button>
+      <a class="dl hidden" id="dlZip" download>Télécharger l'archive<span class="val" id="dlZipSize"></span></a>
+    </div>
   </section>
+
+  <div class="eyebrow">Prism Pro</div>
+  <div id="licBox">
+    <div class="row url-row" id="licRow">
+      <input id="licKey" type="text" placeholder="Clé de licence Gumroad" spellcheck="false" autocapitalize="characters">
+      <button class="mini" id="licBtn">Activer</button>
+    </div>
+    <div class="row hidden" id="licActive">
+      <span id="licWho">Licence active</span>
+      <button class="mini ghost" id="licOff" style="margin-left:auto">Désactiver</button>
+    </div>
+    <p class="note" id="licNote">Fondus, normalisation, extraits multiples, export groupé, MP4 et usage hors ligne. Achat unique, 19 €.</p>
+    <button class="mini ghost hidden" id="installBtn" style="width:100%;margin-top:10px">Installer l'application</button>
+  </div>
+
+  <div class="legal">
+    Prism s'utilise uniquement avec des fichiers qui t'appartiennent, dont tu as l'autorisation, ou libres de droits.
+    L'application ne contourne aucune protection technique et ne prend pas en charge les plateformes de streaming protégées.
+    Aucun fichier n'est téléversé : tout le traitement a lieu dans ton navigateur.
+  </div>
 
   <footer>Prism · traitement 100 % local</footer>
 </main>
 
 <script>
-/* ---------------------------------------------------------------
-   Encodeur MP3 (lamejs) chargé depuis un CDN, avec repli sur WAV.
---------------------------------------------------------------- */
-const CDNS = [
+"use strict";
+
+/* =====================================================================
+   Utilitaires
+===================================================================== */
+const $ = id => document.getElementById(id);
+const state = { buffer:null, name:"audio", format:"mp3", marks:[], pro:false, busy:false };
+
+const fmtTime = s => {
+  s = Math.max(0, Math.floor(s));
+  return Math.floor(s/60) + ":" + String(s%60).padStart(2,"0");
+};
+const fmtSize = b => b > 1048576 ? (b/1048576).toFixed(1)+" Mo" : Math.max(1, Math.round(b/1024))+" Ko";
+const slug = s => s.normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+  .replace(/[^a-zA-Z0-9-_]+/g,"-").replace(/^-+|-+$/g,"").slice(0,60) || "extrait";
+
+function say(msg, kind){
+  const n = $("note");
+  n.textContent = msg;
+  n.classList.toggle("err", kind === "err");
+  n.classList.toggle("ok", kind === "ok");
+}
+function setProgress(p){ $("prog").style.width = Math.max(0, Math.min(100, p)) + "%"; }
+
+function tick(){ $("clock").textContent = new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}); }
+tick(); setInterval(tick, 20000);
+
+/* =====================================================================
+   Encodeur MP3 (lamejs) : copie locale d'abord, CDN ensuite
+===================================================================== */
+const LAME_SOURCES = [
+  "/vendor/lame.min.js",
   "https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.0/lame.min.js",
-  "https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js",
-  "https://unpkg.com/lamejs@1.2.1/lame.min.js"
+  "https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js"
 ];
 let mp3Ready = false;
 (function loadLame(i){
-  if(i >= CDNS.length){ noMp3(); return; }
+  if(i >= LAME_SOURCES.length){ mp3Unavailable(); return; }
   const s = document.createElement("script");
-  s.src = CDNS[i];
+  s.src = LAME_SOURCES[i];
   s.onload = () => {
-    if(typeof lamejs !== "undefined" && lamejs.Mp3Encoder){ mp3Ready = true; }
+    if(typeof lamejs !== "undefined" && lamejs.Mp3Encoder) mp3Ready = true;
     else loadLame(i+1);
   };
   s.onerror = () => loadLame(i+1);
   document.head.appendChild(s);
 })(0);
-function noMp3(){
+
+function mp3Unavailable(){
   mp3Ready = false;
-  setFormat("wav");
-  document.querySelector('#fmt button[data-fmt="mp3"]').disabled = true;
-  document.getElementById("engine").textContent = "wav uniquement";
-  say("Encodeur MP3 indisponible (hors ligne) — le WAV fonctionne sans réseau.");
+  const b = document.querySelector('#fmt button[data-fmt="mp3"]');
+  b.disabled = true;
+  if(state.format === "mp3") setFormat("wav");
+  $("engine").textContent = "mp3 indisponible";
 }
 
-/* ---------------------------------------------------------------
-   État
---------------------------------------------------------------- */
-const $ = id => document.getElementById(id);
-let buffer = null, srcName = "audio", format = "mp3";
-let ctx = null, node = null, playT0 = 0, raf = 0, playing = false;
-
-const fmtTime = s => {
-  s = Math.max(0, s|0);
-  const m = (s/60)|0, r = s%60;
-  return m + ":" + String(r).padStart(2,"0");
-};
-const fmtSize = b => b > 1048576 ? (b/1048576).toFixed(1)+" Mo" : Math.max(1,(b/1024)|0)+" Ko";
-function say(msg, isErr){ const n = $("note"); n.textContent = msg; n.classList.toggle("err", !!isErr); }
-function tick(){ $("clock").textContent = new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}); }
-tick(); setInterval(tick, 20000);
-
-/* ---------------------------------------------------------------
-   Chargement du fichier
---------------------------------------------------------------- */
-const drop = $("drop");
-const picker = $("file");
-const ACCEPT = picker.getAttribute("accept");
+/* =====================================================================
+   Chargement d'un fichier
+===================================================================== */
+const drop = $("drop"), picker = $("file"), ACCEPT = picker.getAttribute("accept");
+let audioCtx = null;
 
 function openPicker(all){
-  if(all) picker.removeAttribute("accept");
-  else picker.setAttribute("accept", ACCEPT);
+  if(all) picker.removeAttribute("accept"); else picker.setAttribute("accept", ACCEPT);
   picker.value = "";
   picker.click();
 }
@@ -300,39 +373,81 @@ drop.addEventListener("keydown", e => {
   if(e.key === "Enter" || e.key === " "){ e.preventDefault(); openPicker(false); }
 });
 $("browseAll").addEventListener("click", () => openPicker(true));
+picker.addEventListener("change", e => { const f = e.target.files[0]; if(f) load(f); });
 
-["dragenter","dragover"].forEach(e => drop.addEventListener(e, ev => {
-  ev.preventDefault(); drop.classList.add("hot");
-}));
-["dragleave","drop"].forEach(e => drop.addEventListener(e, ev => {
-  ev.preventDefault(); drop.classList.remove("hot");
-}));
-drop.addEventListener("drop", ev => { const f = ev.dataTransfer.files[0]; if(f) load(f); });
-$("file").addEventListener("change", e => { const f = e.target.files[0]; if(f) load(f); });
+["dragenter","dragover"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("hot"); }));
+["dragleave","drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("hot"); }));
+drop.addEventListener("drop", e => { const f = e.dataTransfer.files[0]; if(f) load(f); });
+
+async function load(file){
+  stopPlayback();
+  $("dl").classList.add("hidden");
+  $("dlZip").classList.add("hidden");
+  say("Lecture du fichier…");
+  state.name = slug(file.name.replace(/\.[^.]+$/, ""));
+  try{
+    const data = await file.arrayBuffer();
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    state.buffer = await audioCtx.decodeAudioData(data);
+  }catch(err){
+    console.error(err);
+    say("Ce fichier n'a pas pu être décodé. Essaie un MP4, WEBM, MOV, MP3, M4A ou WAV.", "err");
+    return;
+  }
+  const b = state.buffer;
+  state.marks = [];
+  renderMarks();
+  $("stage").classList.remove("hidden");
+  $("fname").textContent = file.name.length > 26 ? file.name.slice(0,24)+"…" : file.name;
+  $("fmeta").textContent = `${fmtSize(file.size)} · ${Math.round(b.sampleRate/100)/10} kHz · ${b.numberOfChannels>1?"stéréo":"mono"}`;
+  $("tDur").textContent = fmtTime(b.duration);
+  $("start").value = 0; $("end").value = 1000;
+  peaks = [];
+  drawWave(); syncTrim();
+  say("Fichier prêt.");
+}
+
+/* --- Lien direct uniquement --- */
+const BLOCKED_HOSTS = /(youtube\.com|youtu\.be|spotify\.com|deezer\.com|soundcloud\.com|tiktok\.com|instagram\.com|facebook\.com|dailymotion\.com|netflix\.com|primevideo\.com|twitch\.tv)/i;
+const MEDIA_EXT = /\.(mp3|wav|wave|m4a|aac|flac|ogg|opus|aiff?|amr|mp4|mov|mkv|webm|3gp)$/i;
 
 $("fetchBtn").addEventListener("click", loadFromUrl);
 $("url").addEventListener("keydown", e => { if(e.key === "Enter") loadFromUrl(); });
 
 async function loadFromUrl(){
-  const u = $("url").value.trim();
-  const note = $("urlNote"), bar = $("prog");
-  if(!u) return;
+  const raw = $("url").value.trim();
+  const note = $("urlNote");
+  if(!raw) return;
   note.classList.remove("err");
 
-  const STREAMS = /(youtube\.com|youtu\.be|spotify\.com|deezer\.com|soundcloud\.com|tiktok\.com|instagram\.com|dailymotion\.com|netflix\.com)/i;
-  if(STREAMS.test(u)){
+  let u;
+  try{ u = new URL(raw); }catch(_){
     note.classList.add("err");
-    note.textContent = "Cette adresse est une page de streaming, pas un fichier. Prism lit des fichiers directs (.mp3, .mp4, .wav) ou des fichiers déposés depuis ton appareil.";
+    note.textContent = "Adresse invalide.";
+    return;
+  }
+  if(!/^https?:$/.test(u.protocol)){
+    note.classList.add("err");
+    note.textContent = "Seules les adresses http et https sont acceptées.";
+    return;
+  }
+  if(BLOCKED_HOSTS.test(u.hostname)){
+    note.classList.add("err");
+    note.textContent = "Cette adresse est une page de streaming, pas un fichier. Prism lit des fichiers directs que tu es autorisé à utiliser.";
+    return;
+  }
+  if(!MEDIA_EXT.test(u.pathname)){
+    note.classList.add("err");
+    note.textContent = "L'adresse doit se terminer par un fichier média (.mp3, .wav, .mp4…).";
     return;
   }
 
   note.textContent = "Téléchargement…";
   try{
-    const res = await fetch(u, { mode:"cors" });
+    const res = await fetch(u.href, { mode:"cors" });
     if(!res.ok) throw new Error("HTTP " + res.status);
-    const total = +res.headers.get("content-length") || 0;
-    const chunks = [];
-    let got = 0;
+    const total = Number(res.headers.get("content-length")) || 0;
+    const chunks = []; let got = 0;
     if(res.body && res.body.getReader){
       const reader = res.body.getReader();
       for(;;){
@@ -342,101 +457,85 @@ async function loadFromUrl(){
         note.textContent = total
           ? `Téléchargement… ${Math.round(got/total*100)} %`
           : `Téléchargement… ${fmtSize(got)}`;
-        if(total && bar) bar.style.width = (got/total*100) + "%";
       }
     }else{
       chunks.push(new Uint8Array(await res.arrayBuffer()));
     }
-    if(bar) bar.style.width = "0";
-    const raw = decodeURIComponent(u.split("/").pop().split("?")[0]) || "audio-distant";
-    const name = /\.[a-z0-9]{2,4}$/i.test(raw) ? raw : raw + ".mp3";
+    const base = decodeURIComponent(u.pathname.split("/").pop()) || "audio-distant.mp3";
     note.textContent = "Lien chargé.";
-    await load(new File(chunks, name));
+    await load(new File(chunks, base));
   }catch(err){
     console.error(err);
-    if(bar) bar.style.width = "0";
     note.classList.add("err");
-    note.textContent = "Lien refusé : soit le serveur bloque le CORS, soit l'adresse n'est pas un fichier direct. Télécharge-le d'abord, puis dépose-le ici.";
+    note.textContent = "Lien inaccessible : le serveur bloque le CORS ou le fichier n'existe pas. Télécharge-le, puis dépose-le ici.";
   }
 }
 
-async function load(file){
-  stop();
-  $("dl").classList.add("hidden");
-  say("Lecture du fichier…");
-  srcName = file.name.replace(/\.[^.]+$/, "") || "audio";
-  try{
-    const data = await file.arrayBuffer();
-    ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
-    buffer = await ctx.decodeAudioData(data);
-  }catch(err){
-    console.error(err);
-    say("Ce fichier n'a pas pu être décodé. Essaie un MP4, WEBM, MOV, MP3, M4A ou WAV.", true);
-    return;
-  }
-  $("stage").classList.remove("hidden");
-  $("fname").textContent = file.name.length > 26 ? file.name.slice(0,24)+"…" : file.name;
-  $("fmeta").textContent = `${fmtSize(file.size)} · ${buffer.sampleRate/1000} kHz · ${buffer.numberOfChannels>1?"stéréo":"mono"}`;
-  $("tDur").textContent = fmtTime(buffer.duration);
-  $("start").value = 0; $("end").value = 1000;
-  drawWave(); syncTrim();
-  say("Fichier prêt. Choisis le format, puis extrais.");
-}
-
-/* ---------------------------------------------------------------
-   Onde — l'élément signature : crêtes en dégradé + halo néon
---------------------------------------------------------------- */
-const cv = $("wave"), g = cv.getContext("2d");
+/* =====================================================================
+   Onde
+===================================================================== */
+const cv = $("wave"), gfx = cv.getContext("2d");
 let peaks = [];
+
 function computePeaks(w){
-  const d = buffer.getChannelData(0), step = Math.max(1, (d.length / w) | 0);
+  const d = state.buffer.getChannelData(0), step = Math.max(1, Math.floor(d.length / w));
   peaks = [];
   for(let i=0;i<w;i++){
     let max = 0;
-    for(let j=0;j<step;j+=3){ const v = Math.abs(d[i*step+j] || 0); if(v>max) max=v; }
+    for(let j=0;j<step;j+=3){ const v = Math.abs(d[i*step+j] || 0); if(v > max) max = v; }
     peaks.push(max);
   }
 }
 function drawWave(cursor){
-  if(!buffer) return;
-  const dpr = window.devicePixelRatio || 1;
-  const w = cv.clientWidth, h = 110;
-  cv.width = w*dpr; cv.height = h*dpr; g.setTransform(dpr,0,0,dpr,0,0);
+  if(!state.buffer) return;
+  const dpr = window.devicePixelRatio || 1, w = cv.clientWidth, h = 110;
+  if(!w) return;
+  cv.width = w*dpr; cv.height = h*dpr; gfx.setTransform(dpr,0,0,dpr,0,0);
   if(peaks.length !== w) computePeaks(w);
-  g.clearRect(0,0,w,h);
+  gfx.clearRect(0,0,w,h);
 
-  const grad = g.createLinearGradient(0,0,w,0);
+  const grad = gfx.createLinearGradient(0,0,w,0);
   grad.addColorStop(0,"#5f5bff"); grad.addColorStop(.55,"#b14cff"); grad.addColorStop(1,"#22d3ee");
   const a = (+$("start").value/1000)*w, b = (+$("end").value/1000)*w;
 
   for(let i=0;i<w;i+=2){
     const amp = Math.max(1.5, peaks[i]*h*0.46);
-    const inSel = i>=a && i<=b;
-    g.globalAlpha = inSel ? 1 : .16;
-    g.shadowBlur = inSel ? 12 : 0; g.shadowColor = "#b14cff";
-    g.fillStyle = grad;
-    g.fillRect(i, h/2 - amp, 1.4, amp*2);
+    const inSel = i >= a && i <= b;
+    gfx.globalAlpha = inSel ? 1 : .16;
+    gfx.shadowBlur = inSel ? 12 : 0; gfx.shadowColor = "#b14cff";
+    gfx.fillStyle = grad;
+    gfx.fillRect(i, h/2 - amp, 1.4, amp*2);
   }
-  g.globalAlpha = 1; g.shadowBlur = 0;
-  g.strokeStyle = "rgba(255,255,255,.07)";
-  g.beginPath(); g.moveTo(0,h/2); g.lineTo(w,h/2); g.stroke();
+  gfx.globalAlpha = 1; gfx.shadowBlur = 0;
+
+  // repères des extraits enregistrés
+  state.marks.forEach(m => {
+    const x1 = (m.start/state.buffer.duration)*w, x2 = (m.end/state.buffer.duration)*w;
+    gfx.fillStyle = "rgba(34,211,238,.14)";
+    gfx.fillRect(x1, 0, Math.max(2, x2-x1), h);
+  });
+
+  gfx.strokeStyle = "rgba(255,255,255,.07)";
+  gfx.beginPath(); gfx.moveTo(0,h/2); gfx.lineTo(w,h/2); gfx.stroke();
 
   if(cursor != null){
-    const x = (cursor/buffer.duration)*w;
-    g.shadowBlur = 16; g.shadowColor = "#22d3ee"; g.strokeStyle = "#eaffff"; g.lineWidth = 1.5;
-    g.beginPath(); g.moveTo(x,6); g.lineTo(x,h-6); g.stroke(); g.shadowBlur = 0;
+    const x = (cursor/state.buffer.duration)*w;
+    gfx.shadowBlur = 16; gfx.shadowColor = "#22d3ee";
+    gfx.strokeStyle = "#eaffff"; gfx.lineWidth = 1.5;
+    gfx.beginPath(); gfx.moveTo(x,6); gfx.lineTo(x,h-6); gfx.stroke();
+    gfx.shadowBlur = 0;
   }
 }
 window.addEventListener("resize", () => { peaks = []; drawWave(); });
 
-/* ---------------------------------------------------------------
-   Découpe
---------------------------------------------------------------- */
+/* =====================================================================
+   Découpe et lecture
+===================================================================== */
 function bounds(){
-  if(!buffer) return [0,0];
-  let s = (+$("start").value/1000)*buffer.duration;
-  let e = (+$("end").value/1000)*buffer.duration;
-  if(e - s < .1) e = Math.min(buffer.duration, s + .1);
+  if(!state.buffer) return [0,0];
+  const d = state.buffer.duration;
+  let s = (+$("start").value/1000)*d, e = (+$("end").value/1000)*d;
+  if(e - s < .1) e = Math.min(d, s + .1);
   return [s,e];
 }
 function syncTrim(){
@@ -448,124 +547,156 @@ function syncTrim(){
 }
 $("start").addEventListener("input", () => {
   if(+$("start").value > +$("end").value - 5) $("start").value = +$("end").value - 5;
-  stop(); syncTrim();
+  stopPlayback(); syncTrim();
 });
 $("end").addEventListener("input", () => {
   if(+$("end").value < +$("start").value + 5) $("end").value = +$("start").value + 5;
-  stop(); syncTrim();
+  stopPlayback(); syncTrim();
 });
 
-/* ---------------------------------------------------------------
-   Écoute
---------------------------------------------------------------- */
-$("play").addEventListener("click", () => playing ? stop() : play());
-function play(){
-  if(!buffer) return;
+let playNode = null, playT0 = 0, raf = 0, playing = false;
+$("play").addEventListener("click", () => playing ? stopPlayback() : startPlayback());
+
+function startPlayback(){
+  if(!state.buffer) return;
   const [s,e] = bounds();
-  ctx.resume();
-  node = ctx.createBufferSource();
-  node.buffer = buffer;
-  node.connect(ctx.destination);
-  node.start(0, s, e-s);
-  node.onended = stop;
-  playT0 = ctx.currentTime - s;
+  audioCtx.resume();
+  playNode = audioCtx.createBufferSource();
+  playNode.buffer = state.buffer;
+  playNode.connect(audioCtx.destination);
+  playNode.start(0, s, e-s);
+  playNode.onended = stopPlayback;
+  playT0 = audioCtx.currentTime - s;
   playing = true; $("play").textContent = "❚❚";
-  const loop = () => {
+  (function loop(){
     if(!playing) return;
-    const t = ctx.currentTime - playT0;
+    const t = audioCtx.currentTime - playT0;
     $("tPos").textContent = fmtTime(t);
     drawWave(t);
     raf = requestAnimationFrame(loop);
-  };
-  loop();
+  })();
 }
-function stop(){
-  if(node){ try{ node.onended = null; node.stop(); }catch(_){} node = null; }
+function stopPlayback(){
+  if(playNode){ try{ playNode.onended = null; playNode.stop(); }catch(_){} playNode = null; }
   playing = false; cancelAnimationFrame(raf);
   $("play").textContent = "▶"; $("tPos").textContent = "0:00";
   drawWave();
 }
 
-/* ---------------------------------------------------------------
-   Format
---------------------------------------------------------------- */
+/* =====================================================================
+   Réglages de sortie
+===================================================================== */
+const M4A_MIME = (function(){
+  if(typeof MediaRecorder === "undefined") return null;
+  const list = ["audio/mp4;codecs=mp4a.40.2", "audio/mp4"];
+  for(const m of list){ try{ if(MediaRecorder.isTypeSupported(m)) return m; }catch(_){} }
+  return null;
+})();
+if(!M4A_MIME) $("btnM4a").disabled = true;
+
 $("fmt").addEventListener("click", e => {
   const b = e.target.closest("button");
-  if(b && !b.disabled) setFormat(b.dataset.fmt);
+  if(!b || b.disabled) return;
+  if(b.dataset.fmt === "m4a" && !state.pro){ promptUnlock(); return; }
+  setFormat(b.dataset.fmt);
 });
 function setFormat(f){
-  format = f;
-  document.querySelectorAll("#fmt button").forEach(b =>
-    b.setAttribute("aria-pressed", String(b.dataset.fmt === f)));
-  $("rowRate").classList.toggle("hidden", f !== "mp3");
+  state.format = f;
+  document.querySelectorAll("#fmt button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.fmt === f)));
+  $("rowRate").classList.toggle("hidden", f === "wav");
 }
 
-/* ---------------------------------------------------------------
-   Rendu : découpe + rééchantillonnage + canaux
---------------------------------------------------------------- */
+/* Fondus et normalisation (UI ; le traitement vient du module Pro) */
+const fadeSec = v => (v/10);
+function syncFades(){
+  $("fadeInLbl").textContent = fadeSec(+$("fadeIn").value).toFixed(1).replace(".", ",") + " s";
+  $("fadeOutLbl").textContent = fadeSec(+$("fadeOut").value).toFixed(1).replace(".", ",") + " s";
+}
+$("fadeIn").addEventListener("input", syncFades);
+$("fadeOut").addEventListener("input", syncFades);
+syncFades();
+$("norm").addEventListener("click", () => {
+  const t = $("norm");
+  t.setAttribute("aria-pressed", t.getAttribute("aria-pressed") === "true" ? "false" : "true");
+});
+
+/* =====================================================================
+   Rendu d'une sélection
+===================================================================== */
 const MPEG_RATES = [8000,11025,12000,16000,22050,24000,32000,44100,48000];
-async function render(){
-  const [s,e] = bounds();
-  let rate = +$("sr").value || buffer.sampleRate;
-  let chans = +$("ch").value || buffer.numberOfChannels;
-  if(format === "mp3" && !MPEG_RATES.includes(rate)) rate = 44100;
+
+async function renderRange(s, e){
+  const src0 = state.buffer;
+  let rate = +$("sr").value || src0.sampleRate;
+  let chans = +$("ch").value || Math.min(2, src0.numberOfChannels);
+  if(state.format === "mp3"){
+    chans = Math.min(2, chans);
+    if(!MPEG_RATES.includes(rate)) rate = 44100;
+  }
   const frames = Math.max(1, Math.round((e-s) * rate));
   const off = new OfflineAudioContext(chans, frames, rate);
-  const src = off.createBufferSource();
-  src.buffer = buffer;
-  src.connect(off.destination);
-  src.start(0, s, e-s);
-  return { rendered: await off.startRendering(), rate, chans };
+  const node = off.createBufferSource();
+  node.buffer = src0;
+  node.connect(off.destination);
+  node.start(0, s, e-s);
+  let out = await off.startRendering();
+
+  if(state.pro && window.PrismPro){
+    out = window.PrismPro.processBuffer(out, {
+      normalize: $("norm").getAttribute("aria-pressed") === "true",
+      fadeIn: fadeSec(+$("fadeIn").value),
+      fadeOut: fadeSec(+$("fadeOut").value)
+    });
+  }
+  return out;
 }
 
-/* ---------------------------------------------------------------
-   Encodage WAV (PCM 16 bits)
---------------------------------------------------------------- */
+/* =====================================================================
+   Encodeurs libres : WAV et MP3
+===================================================================== */
 function toWav(buf){
   const ch = buf.numberOfChannels, n = buf.length, rate = buf.sampleRate;
-  const data = new DataView(new ArrayBuffer(44 + n*ch*2));
-  const str = (o,t) => { for(let i=0;i<t.length;i++) data.setUint8(o+i, t.charCodeAt(i)); };
-  str(0,"RIFF"); data.setUint32(4, 36 + n*ch*2, true); str(8,"WAVEfmt ");
-  data.setUint32(16,16,true); data.setUint16(20,1,true); data.setUint16(22,ch,true);
-  data.setUint32(24,rate,true); data.setUint32(28,rate*ch*2,true);
-  data.setUint16(32,ch*2,true); data.setUint16(34,16,true);
-  str(36,"data"); data.setUint32(40, n*ch*2, true);
-  const chData = [];
-  for(let c=0;c<ch;c++) chData.push(buf.getChannelData(c));
+  const view = new DataView(new ArrayBuffer(44 + n*ch*2));
+  const str = (o,t) => { for(let i=0;i<t.length;i++) view.setUint8(o+i, t.charCodeAt(i)); };
+  str(0,"RIFF"); view.setUint32(4, 36 + n*ch*2, true); str(8,"WAVEfmt ");
+  view.setUint32(16,16,true); view.setUint16(20,1,true); view.setUint16(22,ch,true);
+  view.setUint32(24,rate,true); view.setUint32(28,rate*ch*2,true);
+  view.setUint16(32,ch*2,true); view.setUint16(34,16,true);
+  str(36,"data"); view.setUint32(40, n*ch*2, true);
+  const data = [];
+  for(let c=0;c<ch;c++) data.push(buf.getChannelData(c));
   let o = 44;
   for(let i=0;i<n;i++){
     for(let c=0;c<ch;c++){
-      let v = Math.max(-1, Math.min(1, chData[c][i]));
-      data.setInt16(o, v < 0 ? v*0x8000 : v*0x7FFF, true); o += 2;
+      const v = Math.max(-1, Math.min(1, data[c][i]));
+      view.setInt16(o, v < 0 ? v*0x8000 : v*0x7FFF, true); o += 2;
     }
   }
-  return new Blob([data], {type:"audio/wav"});
+  return new Blob([view], {type:"audio/wav"});
 }
 
-/* ---------------------------------------------------------------
-   Encodage MP3 (par blocs, pour ne pas figer l'interface)
---------------------------------------------------------------- */
-const i16 = f32 => {
+function toInt16(f32){
   const out = new Int16Array(f32.length);
   for(let i=0;i<f32.length;i++){
     const v = Math.max(-1, Math.min(1, f32[i]));
     out[i] = v < 0 ? v*0x8000 : v*0x7FFF;
   }
   return out;
-};
+}
+
 async function toMp3(buf, kbps, onProgress){
+  if(!mp3Ready) throw new Error("Encodeur MP3 indisponible. Choisis WAV.");
   const ch = Math.min(2, buf.numberOfChannels);
   const enc = new lamejs.Mp3Encoder(ch, buf.sampleRate, kbps);
-  const L = i16(buf.getChannelData(0));
-  const R = ch > 1 ? i16(buf.getChannelData(1)) : null;
+  const L = toInt16(buf.getChannelData(0));
+  const R = ch > 1 ? toInt16(buf.getChannelData(1)) : null;
   const BLOCK = 1152, parts = [];
   for(let i=0;i<L.length;i+=BLOCK){
     const l = L.subarray(i, i+BLOCK);
-    const r = R ? R.subarray(i, i+BLOCK) : null;
-    const chunk = ch > 1 ? enc.encodeBuffer(l, r) : enc.encodeBuffer(l);
+    const chunk = R ? enc.encodeBuffer(l, R.subarray(i, i+BLOCK)) : enc.encodeBuffer(l);
     if(chunk.length) parts.push(chunk);
-    if((i / BLOCK) % 220 === 0){
-      onProgress(i / L.length);
+    if((i/BLOCK) % 220 === 0){
+      if(onProgress) onProgress(i / L.length);
       await new Promise(r => setTimeout(r));
     }
   }
@@ -574,45 +705,280 @@ async function toMp3(buf, kbps, onProgress){
   return new Blob(parts, {type:"audio/mpeg"});
 }
 
-/* ---------------------------------------------------------------
-   Action
---------------------------------------------------------------- */
+async function encode(buf, onProgress){
+  if(state.format === "wav") return { blob: toWav(buf), ext: "wav" };
+  if(state.format === "mp3") return { blob: await toMp3(buf, +$("kbps").value, onProgress), ext: "mp3" };
+  if(state.format === "m4a"){
+    if(!state.pro || !window.PrismPro || !window.PrismPro.encodeM4A) throw new Error("Le MP4 fait partie de Prism Pro.");
+    if(!M4A_MIME) throw new Error("Ce navigateur n'encode pas le MP4 audio. Choisis MP3 ou WAV.");
+    return { blob: await window.PrismPro.encodeM4A(buf, { mime:M4A_MIME, bitrate:+$("kbps").value*1000, onProgress }), ext: "m4a" };
+  }
+  throw new Error("Format inconnu.");
+}
+
+/* =====================================================================
+   Extraction unique
+===================================================================== */
 $("go").addEventListener("click", async () => {
-  if(!buffer) return;
-  stop();
-  const btn = $("go"), bar = $("prog"), dl = $("dl");
-  btn.disabled = true; dl.classList.add("hidden");
-  bar.style.width = "6%";
-  say("Décodage et découpe…");
+  if(!state.buffer || state.busy) return;
+  stopPlayback();
+  state.busy = true;
+  $("go").disabled = true;
+  $("dl").classList.add("hidden");
+  setProgress(6);
+  say(state.format === "m4a" ? "Encodage MP4 en temps réel…" : "Découpe…");
   try{
-    const { rendered, rate } = await render();
-    bar.style.width = "32%";
-    let blob, ext;
-    if(format === "mp3"){
-      say("Encodage MP3…");
-      blob = await toMp3(rendered, +$("kbps").value, p => bar.style.width = (32 + p*62) + "%");
-      ext = "mp3";
-    }else{
-      say("Écriture du WAV…");
-      await new Promise(r => setTimeout(r, 30));
-      blob = toWav(rendered);
-      ext = "wav";
-    }
-    bar.style.width = "100%";
+    const [s,e] = bounds();
+    const buf = await renderRange(s, e);
+    setProgress(32);
+    const { blob, ext } = await encode(buf, p => setProgress(32 + p*62));
+    setProgress(100);
     const url = URL.createObjectURL(blob);
+    const dl = $("dl");
+    if(dl.dataset.url) URL.revokeObjectURL(dl.dataset.url);
+    dl.dataset.url = url;
     dl.href = url;
-    dl.download = `${srcName}.${ext}`;
+    dl.download = `${state.name}.${ext}`;
     $("dlSize").textContent = `${ext} · ${fmtSize(blob.size)}`;
     dl.classList.remove("hidden");
-    say(`Terminé — ${rate/1000} kHz.`);
+    say("Terminé.", "ok");
   }catch(err){
     console.error(err);
-    say("L'extraction a échoué. Réduis la sélection ou réessaie en WAV.", true);
-    bar.style.width = "0";
+    say(err.message || "L'extraction a échoué. Réduis la sélection ou essaie en WAV.", "err");
+    setProgress(0);
   }finally{
-    btn.disabled = false;
-    setTimeout(() => bar.style.width = "0", 2500);
+    state.busy = false;
+    $("go").disabled = false;
+    setTimeout(() => setProgress(0), 2500);
   }
+});
+
+/* =====================================================================
+   Extraits multiples (Pro)
+===================================================================== */
+$("addMark").addEventListener("click", () => {
+  if(!state.pro) return promptUnlock();
+  if(!state.buffer) return;
+  const [s,e] = bounds();
+  state.marks.push({ start:s, end:e, label:`${state.name}-${state.marks.length+1}` });
+  renderMarks();
+  say(`${state.marks.length} extrait${state.marks.length>1?"s":""} en attente.`);
+});
+
+function renderMarks(){
+  const ul = $("markList");
+  ul.innerHTML = "";
+  state.marks.forEach((m, i) => {
+    const li = document.createElement("li");
+    const idx = document.createElement("span");
+    idx.className = "idx"; idx.textContent = String(i+1).padStart(2,"0");
+    const name = document.createElement("span");
+    name.textContent = `${fmtTime(m.start)} → ${fmtTime(m.end)}`;
+    const dur = document.createElement("span");
+    dur.className = "dur"; dur.textContent = fmtTime(m.end - m.start);
+    const del = document.createElement("button");
+    del.type = "button"; del.textContent = "✕"; del.setAttribute("aria-label", "Retirer l'extrait " + (i+1));
+    del.addEventListener("click", () => { state.marks.splice(i,1); renderMarks(); });
+    li.append(idx, name, dur, del);
+    ul.appendChild(li);
+  });
+  drawWave();
+}
+
+$("exportAll").addEventListener("click", async () => {
+  if(!state.pro) return promptUnlock();
+  if(!state.buffer || state.busy) return;
+  if(!state.marks.length){ say("Ajoute d'abord au moins un extrait à la liste.", "err"); return; }
+  if(!window.PrismPro || !window.PrismPro.zip){ say("Module Pro absent. Réactive ta licence.", "err"); return; }
+
+  stopPlayback();
+  state.busy = true;
+  $("exportAll").disabled = true;
+  $("dlZip").classList.add("hidden");
+  const files = [];
+  try{
+    for(let i=0;i<state.marks.length;i++){
+      const m = state.marks[i];
+      say(`Extrait ${i+1} sur ${state.marks.length}…`);
+      const buf = await renderRange(m.start, m.end);
+      const { blob, ext } = await encode(buf, p => setProgress(((i + p) / state.marks.length) * 100));
+      files.push({ name: `${String(i+1).padStart(2,"0")}-${slug(m.label)}.${ext}`, data: new Uint8Array(await blob.arrayBuffer()) });
+      setProgress(((i+1) / state.marks.length) * 100);
+    }
+    const zipBlob = window.PrismPro.zip(files);
+    const url = URL.createObjectURL(zipBlob);
+    const dz = $("dlZip");
+    if(dz.dataset.url) URL.revokeObjectURL(dz.dataset.url);
+    dz.dataset.url = url;
+    dz.href = url;
+    dz.download = `${state.name}-extraits.zip`;
+    $("dlZipSize").textContent = `${files.length} fichiers · ${fmtSize(zipBlob.size)}`;
+    dz.classList.remove("hidden");
+    say("Archive prête.", "ok");
+  }catch(err){
+    console.error(err);
+    say(err.message || "L'export groupé a échoué.", "err");
+    setProgress(0);
+  }finally{
+    state.busy = false;
+    $("exportAll").disabled = false;
+    setTimeout(() => setProgress(0), 2500);
+  }
+});
+
+/* =====================================================================
+   Licence
+===================================================================== */
+const LIC = { key:"prism.lic.key", code:"prism.lic.code", at:"prism.lic.at", who:"prism.lic.who" };
+const RECHECK_MS = 14 * 24 * 3600 * 1000;
+
+const MESSAGES = {
+  invalid:  "Clé inconnue. Vérifie l'e-mail d'achat Gumroad.",
+  refunded: "Cet achat a été remboursé : la licence n'est plus active.",
+  disabled: "Cette clé a été désactivée ou a trop d'activations.",
+  config:   "Licence non configurée côté serveur. Contacte le support.",
+  offline:  "Serveur de licence injoignable. Réessaie quand tu seras en ligne.",
+  ok:       "Prism Pro est actif."
+};
+
+function promptUnlock(){
+  $("licBox").scrollIntoView({ behavior:"smooth", block:"center" });
+  $("licNote").classList.remove("err");
+  $("licNote").textContent = "Cette fonction fait partie de Prism Pro. Achat unique, 19 €.";
+}
+document.querySelectorAll(".pro-zone").forEach(z => z.addEventListener("click", () => {
+  if(!state.pro) promptUnlock();
+}));
+
+function setPro(on, who){
+  state.pro = on;
+  document.querySelectorAll(".pro-zone").forEach(z => z.setAttribute("data-locked", String(!on)));
+  $("licRow").classList.toggle("hidden", on);
+  $("licActive").classList.toggle("hidden", !on);
+  if(on){
+    $("licWho").textContent = who ? `Licence active · ${who}` : "Licence active";
+    if(M4A_MIME) $("btnM4a").disabled = false;
+    registerServiceWorker();
+  }
+}
+
+function storeLicense(key, code, who){
+  try{
+    localStorage.setItem(LIC.key, key);
+    localStorage.setItem(LIC.code, code);
+    localStorage.setItem(LIC.at, String(Date.now()));
+    if(who) localStorage.setItem(LIC.who, who);
+  }catch(_){ /* stockage refusé : la session reste active */ }
+}
+function clearLicense(){
+  Object.values(LIC).forEach(k => { try{ localStorage.removeItem(k); }catch(_){} });
+}
+
+function runProCode(code){
+  try{ new Function(code)(); return !!window.PrismPro; }
+  catch(err){ console.error(err); return false; }
+}
+
+async function verify(key){
+  const res = await fetch("/api/license", {
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify({ key })
+  });
+  let data = {};
+  try{ data = await res.json(); }catch(_){}
+  return { status: res.status, data };
+}
+
+$("licBtn").addEventListener("click", async () => {
+  const key = $("licKey").value.trim();
+  const note = $("licNote");
+  if(!key){ note.classList.add("err"); note.textContent = "Colle la clé reçue par e-mail."; return; }
+  note.classList.remove("err");
+  note.textContent = "Vérification…";
+  try{
+    const { data } = await verify(key);
+    if(!data.ok){
+      note.classList.add("err");
+      note.textContent = MESSAGES[data.reason] || data.error || MESSAGES.invalid;
+      return;
+    }
+    if(!runProCode(data.code)){
+      note.classList.add("err");
+      note.textContent = "Le module Pro n'a pas pu se charger. Recharge la page.";
+      return;
+    }
+    storeLicense(key, data.code, data.buyer);
+    setPro(true, data.buyer);
+    note.classList.remove("err");
+    note.textContent = MESSAGES.ok;
+  }catch(err){
+    console.error(err);
+    note.classList.add("err");
+    note.textContent = MESSAGES.offline;
+  }
+});
+
+$("licOff").addEventListener("click", () => {
+  clearLicense();
+  state.pro = false;
+  delete window.PrismPro;
+  setPro(false);
+  $("licKey").value = "";
+  $("licNote").classList.remove("err");
+  $("licNote").textContent = "Licence retirée de cet appareil. Tu peux saisir une autre clé.";
+});
+
+/* Réactivation au chargement : code en cache, puis revérification espacée */
+(async function restoreLicense(){
+  let key, code, at, who;
+  try{
+    key = localStorage.getItem(LIC.key);
+    code = localStorage.getItem(LIC.code);
+    at = Number(localStorage.getItem(LIC.at) || 0);
+    who = localStorage.getItem(LIC.who);
+  }catch(_){ return; }
+  if(!key || !code) return;
+
+  if(runProCode(code)) setPro(true, who);
+
+  if(Date.now() - at < RECHECK_MS || !navigator.onLine) return;
+  try{
+    const { data } = await verify(key);
+    if(data.ok){
+      storeLicense(key, data.code, data.buyer);
+    }else if(data.reason === "refunded" || data.reason === "disabled" || data.reason === "invalid"){
+      clearLicense();
+      delete window.PrismPro;
+      setPro(false);
+      $("licNote").classList.add("err");
+      $("licNote").textContent = MESSAGES[data.reason];
+    }
+  }catch(_){ /* hors ligne : on garde l'activation */ }
+})();
+
+/* =====================================================================
+   Hors ligne (Pro) et installation
+===================================================================== */
+let swDone = false;
+function registerServiceWorker(){
+  if(swDone || !("serviceWorker" in navigator)) return;
+  swDone = true;
+  navigator.serviceWorker.register("/sw.js").catch(err => console.warn("SW:", err));
+}
+
+let installEvent = null;
+window.addEventListener("beforeinstallprompt", e => {
+  e.preventDefault();
+  installEvent = e;
+  if(state.pro) $("installBtn").classList.remove("hidden");
+});
+$("installBtn").addEventListener("click", async () => {
+  if(!installEvent) return;
+  installEvent.prompt();
+  await installEvent.userChoice;
+  installEvent = null;
+  $("installBtn").classList.add("hidden");
 });
 </script>
 </body>
