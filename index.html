@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PRISM — Extracteur audio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@300;500;700&family=Space+Grotesk:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --void:#04020a;
+  --ink:#0a0616;
+  --panel:rgba(255,255,255,.035);
+  --edge:rgba(168,120,255,.28);
+  --violet:#b14cff;
+  --indigo:#5f5bff;
+  --cyan:#22d3ee;
+  --text:#ece7ff;
+  --muted:#8a82b4;
+  --radius:999px;
+  --card:22px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--void);color:var(--text);
+  font-family:"Space Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif;
+  -webkit-font-smoothing:antialiased;}
+body{min-height:100vh;display:flex;justify-content:center;padding:0 0 64px;}
+body::before{
+  content:"";position:fixed;inset:-20%;pointer-events:none;z-index:0;
+  background:
+    radial-gradient(52% 38% at 78% 8%, rgba(56,132,255,.30), transparent 62%),
+    radial-gradient(60% 45% at 22% 46%, rgba(177,76,255,.26), transparent 65%),
+    radial-gradient(48% 34% at 88% 74%, rgba(34,211,238,.14), transparent 68%);
+  filter:blur(28px);
+}
+.shell{position:relative;z-index:1;width:100%;max-width:460px;padding:28px 20px 0;}
+
+/* ---------- en-tête ---------- */
+.status{display:flex;justify-content:space-between;font-size:11px;letter-spacing:.16em;
+  color:var(--muted);text-transform:uppercase;margin-bottom:34px}
+.status b{font-weight:500;color:#cfc6ff}
+h1{font-family:"Chakra Petch",sans-serif;font-weight:300;font-size:34px;letter-spacing:.42em;
+  text-align:center;margin:0 0 10px 0;text-indent:.42em;
+  text-shadow:0 0 26px rgba(177,76,255,.55),0 0 60px rgba(95,91,255,.35)}
+.tagline{text-align:center;color:var(--muted);font-size:13px;line-height:1.5;margin:0 0 30px}
+
+/* ---------- briques ---------- */
+.pill,.card{
+  border:1px solid var(--edge);border-radius:var(--radius);
+  background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.015));
+  backdrop-filter:blur(6px);
+}
+.card{border-radius:var(--card)}
+.eyebrow{font-size:10px;letter-spacing:.28em;text-transform:uppercase;color:#9d92d6;
+  margin:30px 0 12px;padding-left:16px}
+.row{display:flex;align-items:center;gap:12px;padding:15px 20px;margin-bottom:12px;
+  border:1px solid var(--edge);border-radius:var(--radius);
+  background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.012));
+  font-size:14px}
+.row .val{margin-left:auto;color:var(--muted);font-variant-numeric:tabular-nums;font-size:13px}
+.glow{box-shadow:0 0 0 1px rgba(177,76,255,.35),0 8px 34px -12px rgba(177,76,255,.75),
+  inset 0 -14px 26px -20px var(--violet)}
+
+/* ---------- zone de dépôt ---------- */
+#drop{position:relative;display:block;width:100%;padding:38px 24px;text-align:center;cursor:pointer;
+  border:1px dashed rgba(168,120,255,.45);border-radius:var(--card);overflow:hidden;
+  background:linear-gradient(180deg,rgba(177,76,255,.10),rgba(34,211,238,.05));
+  transition:.25s}
+#drop:hover,#drop.hot{border-color:var(--cyan);
+  box-shadow:0 0 40px -10px rgba(34,211,238,.6),inset 0 0 60px -30px var(--violet)}
+#drop .big{font-family:"Chakra Petch",sans-serif;letter-spacing:.2em;font-size:15px;text-transform:uppercase}
+#drop .small{color:var(--muted);font-size:12px;margin-top:8px;line-height:1.5}
+#file{display:none}
+
+/* ---------- lien externe ---------- */
+.url-row{display:flex;align-items:center;gap:8px;margin-top:12px;padding:6px 6px 6px 18px}
+#url{flex:1;min-width:0;font:inherit;font-size:13px;color:var(--text);background:transparent;border:0;outline:none}
+#url::placeholder{color:#5c5482}
+.mini{flex:0 0 auto;padding:11px 18px;font:inherit;font-size:11px;letter-spacing:.18em;text-transform:uppercase;
+  color:#fff;cursor:pointer;border:1px solid rgba(34,211,238,.5);border-radius:var(--radius);
+  background:linear-gradient(90deg,rgba(34,211,238,.22),rgba(177,76,255,.22));transition:.2s}
+.mini:hover{box-shadow:0 0 24px -8px var(--cyan)}
+.sep{display:flex;align-items:center;gap:12px;margin:16px 2px 0;color:#5c5482;font-size:10px;letter-spacing:.28em}
+.sep::before,.sep::after{content:"";flex:1;height:1px;background:rgba(168,120,255,.22)}
+
+/* ---------- onde ---------- */
+.wave-wrap{position:relative;margin:14px 0 6px;padding:16px 14px 12px;border-radius:var(--card);
+  border:1px solid var(--edge);background:radial-gradient(120% 100% at 50% 0%,rgba(95,91,255,.16),rgba(4,2,10,.6))}
+canvas{width:100%;height:110px;display:block}
+.wave-meta{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);
+  letter-spacing:.1em;padding:6px 4px 0;font-variant-numeric:tabular-nums}
+
+/* ---------- contrôles ---------- */
+.seg{display:flex;gap:10px;margin-bottom:12px}
+.seg button{flex:1;padding:13px 8px;font:inherit;font-size:13px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--muted);background:rgba(255,255,255,.03);border:1px solid var(--edge);
+  border-radius:var(--radius);cursor:pointer;transition:.2s}
+.seg button:hover{color:var(--text)}
+.seg button[aria-pressed="true"]{color:#fff;border-color:transparent;
+  background:linear-gradient(90deg,rgba(177,76,255,.5),rgba(95,91,255,.35));
+  box-shadow:0 0 26px -6px rgba(177,76,255,.9)}
+select{margin-left:auto;font:inherit;font-size:13px;color:var(--text);background:transparent;
+  border:0;text-align:right;cursor:pointer;outline:none}
+select option{background:#120a24;color:var(--text)}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:3px;border-radius:3px;
+  background:linear-gradient(90deg,var(--violet),var(--cyan));outline:none;margin:0}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;
+  background:#fff;box-shadow:0 0 14px var(--cyan);cursor:pointer}
+input[type=range]::-moz-range-thumb{width:16px;height:16px;border:0;border-radius:50%;
+  background:#fff;box-shadow:0 0 14px var(--cyan);cursor:pointer}
+.trim{padding:16px 20px}
+.trim label{display:flex;justify-content:space-between;font-size:11px;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.trim + .trim{margin-top:-4px}
+
+/* ---------- lecture + action ---------- */
+.play{width:52px;height:52px;border-radius:50%;flex:0 0 auto;display:grid;place-items:center;
+  border:1px solid rgba(34,211,238,.5);background:radial-gradient(circle at 30% 30%,rgba(34,211,238,.35),rgba(10,6,22,.9));
+  color:#fff;cursor:pointer;box-shadow:0 0 30px -8px var(--cyan);font-size:15px}
+.cta{display:block;width:100%;margin-top:22px;padding:19px;font:inherit;font-size:14px;
+  letter-spacing:.26em;text-transform:uppercase;color:#fff;cursor:pointer;
+  border:1px solid rgba(177,76,255,.6);border-radius:var(--radius);
+  background:linear-gradient(90deg,rgba(95,91,255,.55),rgba(177,76,255,.55));
+  box-shadow:0 10px 44px -16px rgba(177,76,255,1);transition:.2s}
+.cta:hover{transform:translateY(-1px)}
+.cta:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.bar{height:3px;border-radius:3px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:16px}
+.bar i{display:block;height:100%;width:0;border-radius:3px;
+  background:linear-gradient(90deg,var(--violet),var(--cyan));box-shadow:0 0 18px var(--cyan);transition:width .18s}
+.note{font-size:12px;color:var(--muted);text-align:center;margin-top:12px;line-height:1.55}
+.note.err{color:#ff8fa8}
+a.dl{display:flex;align-items:center;gap:12px;margin-top:16px;padding:16px 20px;text-decoration:none;
+  color:var(--text);font-size:14px;border:1px solid rgba(34,211,238,.5);border-radius:var(--radius);
+  background:linear-gradient(90deg,rgba(34,211,238,.16),rgba(177,76,255,.16));
+  box-shadow:0 0 34px -14px var(--cyan)}
+a.dl .val{margin-left:auto;color:var(--cyan);font-size:12px;letter-spacing:.14em;text-transform:uppercase}
+.hidden{display:none !important}
+footer{text-align:center;color:#5c5482;font-size:11px;letter-spacing:.14em;margin-top:34px;text-transform:uppercase}
+@media (prefers-reduced-motion:reduce){*{transition:none !important}}
+</style>
+</head>
+<body>
+<main class="shell">
+
+  <div class="status"><span><b id="clock">--:--</b></span><span id="engine">local · hors ligne</span></div>
+
+  <h1>PRISM</h1>
+  <p class="tagline">Extrais la piste audio d'une vidéo, ou convertis un son.<br>Tout est traité dans ton navigateur, rien n'est envoyé.</p>
+
+  <label id="drop" for="file">
+    <div class="big">Déposer un fichier</div>
+    <div class="small">MP4 · MOV · WEBM · MKV · MP3 · M4A · WAV · OGG<br>ou touche ici pour choisir</div>
+    <input id="file" type="file" accept="video/*,audio/*">
+  </label>
+
+  <div class="sep">ou depuis un lien</div>
+  <div class="row url-row">
+    <input id="url" type="url" placeholder="https://…/fichier.mp3" spellcheck="false" autocapitalize="off">
+    <button class="mini" id="fetchBtn">Charger</button>
+  </div>
+  <p class="note" id="urlNote">Le lien doit pointer vers un fichier direct (.mp3, .mp4, .wav…) sur un serveur qui autorise le CORS.</p>
+
+  <section id="stage" class="hidden">
+
+    <div class="eyebrow">Source</div>
+    <div class="row glow"><span id="fname">—</span><span class="val" id="fmeta"></span></div>
+
+    <div class="wave-wrap">
+      <canvas id="wave"></canvas>
+      <div class="wave-meta"><span id="tPos">0:00</span><span id="tDur">0:00</span></div>
+    </div>
+
+    <div class="row" style="padding:12px 14px">
+      <button class="play" id="play" aria-label="Écouter">▶</button>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <span style="font-size:13px">Écouter la sélection</span>
+        <span class="val" id="selInfo" style="margin:0;font-size:11px;letter-spacing:.1em">—</span>
+      </div>
+    </div>
+
+    <div class="eyebrow">Découpe</div>
+    <div class="row trim" style="flex-direction:column;align-items:stretch">
+      <label>Début <span id="startLbl">0:00</span></label>
+      <input type="range" id="start" min="0" max="1000" value="0">
+    </div>
+    <div class="row trim" style="flex-direction:column;align-items:stretch">
+      <label>Fin <span id="endLbl">0:00</span></label>
+      <input type="range" id="end" min="0" max="1000" value="1000">
+    </div>
+
+    <div class="eyebrow">Sortie</div>
+    <div class="seg" id="fmt">
+      <button data-fmt="mp3" aria-pressed="true">MP3</button>
+      <button data-fmt="wav" aria-pressed="false">WAV</button>
+    </div>
+
+    <div class="row" id="rowRate"><span>Débit</span>
+      <select id="kbps">
+        <option value="320">320 kbps</option>
+        <option value="256">256 kbps</option>
+        <option value="192" selected>192 kbps</option>
+        <option value="128">128 kbps</option>
+        <option value="96">96 kbps</option>
+      </select>
+    </div>
+
+    <div class="row"><span>Échantillonnage</span>
+      <select id="sr">
+        <option value="0" selected>Identique à la source</option>
+        <option value="48000">48 000 Hz</option>
+        <option value="44100">44 100 Hz</option>
+        <option value="32000">32 000 Hz</option>
+        <option value="22050">22 050 Hz</option>
+        <option value="16000">16 000 Hz</option>
+      </select>
+    </div>
+
+    <div class="row"><span>Canaux</span>
+      <select id="ch">
+        <option value="0" selected>Identique à la source</option>
+        <option value="2">Stéréo</option>
+        <option value="1">Mono</option>
+      </select>
+    </div>
+
+    <button class="cta" id="go">Extraire l'audio</button>
+    <div class="bar"><i id="prog"></i></div>
+    <p class="note" id="note">Prêt.</p>
+    <a class="dl hidden" id="dl" download>Télécharger<span class="val" id="dlSize"></span></a>
+  </section>
+
+  <footer>Prism · traitement 100 % local</footer>
+</main>
+
+<script>
+/* ---------------------------------------------------------------
+   Encodeur MP3 (lamejs) chargé depuis un CDN, avec repli sur WAV.
+--------------------------------------------------------------- */
+const CDNS = [
+  "https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.0/lame.min.js",
+  "https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js",
+  "https://unpkg.com/lamejs@1.2.1/lame.min.js"
+];
+let mp3Ready = false;
+(function loadLame(i){
+  if(i >= CDNS.length){ noMp3(); return; }
+  const s = document.createElement("script");
+  s.src = CDNS[i];
+  s.onload = () => {
+    if(typeof lamejs !== "undefined" && lamejs.Mp3Encoder){ mp3Ready = true; }
+    else loadLame(i+1);
+  };
+  s.onerror = () => loadLame(i+1);
+  document.head.appendChild(s);
+})(0);
+function noMp3(){
+  mp3Ready = false;
+  setFormat("wav");
+  document.querySelector('#fmt button[data-fmt="mp3"]').disabled = true;
+  document.getElementById("engine").textContent = "wav uniquement";
+  say("Encodeur MP3 indisponible (hors ligne) — le WAV fonctionne sans réseau.");
+}
+
+/* ---------------------------------------------------------------
+   État
+--------------------------------------------------------------- */
+const $ = id => document.getElementById(id);
+let buffer = null, srcName = "audio", format = "mp3";
+let ctx = null, node = null, playT0 = 0, raf = 0, playing = false;
+
+const fmtTime = s => {
+  s = Math.max(0, s|0);
+  const m = (s/60)|0, r = s%60;
+  return m + ":" + String(r).padStart(2,"0");
+};
+const fmtSize = b => b > 1048576 ? (b/1048576).toFixed(1)+" Mo" : Math.max(1,(b/1024)|0)+" Ko";
+function say(msg, isErr){ const n = $("note"); n.textContent = msg; n.classList.toggle("err", !!isErr); }
+function tick(){ $("clock").textContent = new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}); }
+tick(); setInterval(tick, 20000);
+
+/* ---------------------------------------------------------------
+   Chargement du fichier
+--------------------------------------------------------------- */
+const drop = $("drop");
+["dragenter","dragover"].forEach(e => drop.addEventListener(e, ev => {
+  ev.preventDefault(); drop.classList.add("hot");
+}));
+["dragleave","drop"].forEach(e => drop.addEventListener(e, ev => {
+  ev.preventDefault(); drop.classList.remove("hot");
+}));
+drop.addEventListener("drop", ev => { const f = ev.dataTransfer.files[0]; if(f) load(f); });
+$("file").addEventListener("change", e => { const f = e.target.files[0]; if(f) load(f); });
+
+$("fetchBtn").addEventListener("click", loadFromUrl);
+$("url").addEventListener("keydown", e => { if(e.key === "Enter") loadFromUrl(); });
+
+async function loadFromUrl(){
+  const u = $("url").value.trim();
+  const note = $("urlNote"), bar = $("prog");
+  if(!u) return;
+  note.classList.remove("err");
+  note.textContent = "Téléchargement…";
+  try{
+    const res = await fetch(u, { mode:"cors" });
+    if(!res.ok) throw new Error("HTTP " + res.status);
+    const total = +res.headers.get("content-length") || 0;
+    const chunks = [];
+    let got = 0;
+    if(res.body && res.body.getReader){
+      const reader = res.body.getReader();
+      for(;;){
+        const { done, value } = await reader.read();
+        if(done) break;
+        chunks.push(value); got += value.length;
+        note.textContent = total
+          ? `Téléchargement… ${Math.round(got/total*100)} %`
+          : `Téléchargement… ${fmtSize(got)}`;
+        if(total && bar) bar.style.width = (got/total*100) + "%";
+      }
+    }else{
+      chunks.push(new Uint8Array(await res.arrayBuffer()));
+    }
+    if(bar) bar.style.width = "0";
+    const raw = decodeURIComponent(u.split("/").pop().split("?")[0]) || "audio-distant";
+    const name = /\.[a-z0-9]{2,4}$/i.test(raw) ? raw : raw + ".mp3";
+    note.textContent = "Lien chargé.";
+    await load(new File(chunks, name));
+  }catch(err){
+    console.error(err);
+    if(bar) bar.style.width = "0";
+    note.classList.add("err");
+    note.textContent = "Lien refusé : soit le serveur bloque le CORS, soit l'adresse n'est pas un fichier direct. Télécharge-le d'abord, puis dépose-le ici.";
+  }
+}
+
+async function load(file){
+  stop();
+  $("dl").classList.add("hidden");
+  say("Lecture du fichier…");
+  srcName = file.name.replace(/\.[^.]+$/, "") || "audio";
+  try{
+    const data = await file.arrayBuffer();
+    ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
+    buffer = await ctx.decodeAudioData(data);
+  }catch(err){
+    console.error(err);
+    say("Ce fichier n'a pas pu être décodé. Essaie un MP4, WEBM, MOV, MP3, M4A ou WAV.", true);
+    return;
+  }
+  $("stage").classList.remove("hidden");
+  $("fname").textContent = file.name.length > 26 ? file.name.slice(0,24)+"…" : file.name;
+  $("fmeta").textContent = `${fmtSize(file.size)} · ${buffer.sampleRate/1000} kHz · ${buffer.numberOfChannels>1?"stéréo":"mono"}`;
+  $("tDur").textContent = fmtTime(buffer.duration);
+  $("start").value = 0; $("end").value = 1000;
+  drawWave(); syncTrim();
+  say("Fichier prêt. Choisis le format, puis extrais.");
+}
+
+/* ---------------------------------------------------------------
+   Onde — l'élément signature : crêtes en dégradé + halo néon
+--------------------------------------------------------------- */
+const cv = $("wave"), g = cv.getContext("2d");
+let peaks = [];
+function computePeaks(w){
+  const d = buffer.getChannelData(0), step = Math.max(1, (d.length / w) | 0);
+  peaks = [];
+  for(let i=0;i<w;i++){
+    let max = 0;
+    for(let j=0;j<step;j+=3){ const v = Math.abs(d[i*step+j] || 0); if(v>max) max=v; }
+    peaks.push(max);
+  }
+}
+function drawWave(cursor){
+  if(!buffer) return;
+  const dpr = window.devicePixelRatio || 1;
+  const w = cv.clientWidth, h = 110;
+  cv.width = w*dpr; cv.height = h*dpr; g.setTransform(dpr,0,0,dpr,0,0);
+  if(peaks.length !== w) computePeaks(w);
+  g.clearRect(0,0,w,h);
+
+  const grad = g.createLinearGradient(0,0,w,0);
+  grad.addColorStop(0,"#5f5bff"); grad.addColorStop(.55,"#b14cff"); grad.addColorStop(1,"#22d3ee");
+  const a = (+$("start").value/1000)*w, b = (+$("end").value/1000)*w;
+
+  for(let i=0;i<w;i+=2){
+    const amp = Math.max(1.5, peaks[i]*h*0.46);
+    const inSel = i>=a && i<=b;
+    g.globalAlpha = inSel ? 1 : .16;
+    g.shadowBlur = inSel ? 12 : 0; g.shadowColor = "#b14cff";
+    g.fillStyle = grad;
+    g.fillRect(i, h/2 - amp, 1.4, amp*2);
+  }
+  g.globalAlpha = 1; g.shadowBlur = 0;
+  g.strokeStyle = "rgba(255,255,255,.07)";
+  g.beginPath(); g.moveTo(0,h/2); g.lineTo(w,h/2); g.stroke();
+
+  if(cursor != null){
+    const x = (cursor/buffer.duration)*w;
+    g.shadowBlur = 16; g.shadowColor = "#22d3ee"; g.strokeStyle = "#eaffff"; g.lineWidth = 1.5;
+    g.beginPath(); g.moveTo(x,6); g.lineTo(x,h-6); g.stroke(); g.shadowBlur = 0;
+  }
+}
+window.addEventListener("resize", () => { peaks = []; drawWave(); });
+
+/* ---------------------------------------------------------------
+   Découpe
+--------------------------------------------------------------- */
+function bounds(){
+  if(!buffer) return [0,0];
+  let s = (+$("start").value/1000)*buffer.duration;
+  let e = (+$("end").value/1000)*buffer.duration;
+  if(e - s < .1) e = Math.min(buffer.duration, s + .1);
+  return [s,e];
+}
+function syncTrim(){
+  const [s,e] = bounds();
+  $("startLbl").textContent = fmtTime(s);
+  $("endLbl").textContent = fmtTime(e);
+  $("selInfo").textContent = fmtTime(e-s) + " sélectionnées";
+  drawWave();
+}
+$("start").addEventListener("input", () => {
+  if(+$("start").value > +$("end").value - 5) $("start").value = +$("end").value - 5;
+  stop(); syncTrim();
+});
+$("end").addEventListener("input", () => {
+  if(+$("end").value < +$("start").value + 5) $("end").value = +$("start").value + 5;
+  stop(); syncTrim();
+});
+
+/* ---------------------------------------------------------------
+   Écoute
+--------------------------------------------------------------- */
+$("play").addEventListener("click", () => playing ? stop() : play());
+function play(){
+  if(!buffer) return;
+  const [s,e] = bounds();
+  ctx.resume();
+  node = ctx.createBufferSource();
+  node.buffer = buffer;
+  node.connect(ctx.destination);
+  node.start(0, s, e-s);
+  node.onended = stop;
+  playT0 = ctx.currentTime - s;
+  playing = true; $("play").textContent = "❚❚";
+  const loop = () => {
+    if(!playing) return;
+    const t = ctx.currentTime - playT0;
+    $("tPos").textContent = fmtTime(t);
+    drawWave(t);
+    raf = requestAnimationFrame(loop);
+  };
+  loop();
+}
+function stop(){
+  if(node){ try{ node.onended = null; node.stop(); }catch(_){} node = null; }
+  playing = false; cancelAnimationFrame(raf);
+  $("play").textContent = "▶"; $("tPos").textContent = "0:00";
+  drawWave();
+}
+
+/* ---------------------------------------------------------------
+   Format
+--------------------------------------------------------------- */
+$("fmt").addEventListener("click", e => {
+  const b = e.target.closest("button");
+  if(b && !b.disabled) setFormat(b.dataset.fmt);
+});
+function setFormat(f){
+  format = f;
+  document.querySelectorAll("#fmt button").forEach(b =>
+    b.setAttribute("aria-pressed", String(b.dataset.fmt === f)));
+  $("rowRate").classList.toggle("hidden", f !== "mp3");
+}
+
+/* ---------------------------------------------------------------
+   Rendu : découpe + rééchantillonnage + canaux
+--------------------------------------------------------------- */
+const MPEG_RATES = [8000,11025,12000,16000,22050,24000,32000,44100,48000];
+async function render(){
+  const [s,e] = bounds();
+  let rate = +$("sr").value || buffer.sampleRate;
+  let chans = +$("ch").value || buffer.numberOfChannels;
+  if(format === "mp3" && !MPEG_RATES.includes(rate)) rate = 44100;
+  const frames = Math.max(1, Math.round((e-s) * rate));
+  const off = new OfflineAudioContext(chans, frames, rate);
+  const src = off.createBufferSource();
+  src.buffer = buffer;
+  src.connect(off.destination);
+  src.start(0, s, e-s);
+  return { rendered: await off.startRendering(), rate, chans };
+}
+
+/* ---------------------------------------------------------------
+   Encodage WAV (PCM 16 bits)
+--------------------------------------------------------------- */
+function toWav(buf){
+  const ch = buf.numberOfChannels, n = buf.length, rate = buf.sampleRate;
+  const data = new DataView(new ArrayBuffer(44 + n*ch*2));
+  const str = (o,t) => { for(let i=0;i<t.length;i++) data.setUint8(o+i, t.charCodeAt(i)); };
+  str(0,"RIFF"); data.setUint32(4, 36 + n*ch*2, true); str(8,"WAVEfmt ");
+  data.setUint32(16,16,true); data.setUint16(20,1,true); data.setUint16(22,ch,true);
+  data.setUint32(24,rate,true); data.setUint32(28,rate*ch*2,true);
+  data.setUint16(32,ch*2,true); data.setUint16(34,16,true);
+  str(36,"data"); data.setUint32(40, n*ch*2, true);
+  const chData = [];
+  for(let c=0;c<ch;c++) chData.push(buf.getChannelData(c));
+  let o = 44;
+  for(let i=0;i<n;i++){
+    for(let c=0;c<ch;c++){
+      let v = Math.max(-1, Math.min(1, chData[c][i]));
+      data.setInt16(o, v < 0 ? v*0x8000 : v*0x7FFF, true); o += 2;
+    }
+  }
+  return new Blob([data], {type:"audio/wav"});
+}
+
+/* ---------------------------------------------------------------
+   Encodage MP3 (par blocs, pour ne pas figer l'interface)
+--------------------------------------------------------------- */
+const i16 = f32 => {
+  const out = new Int16Array(f32.length);
+  for(let i=0;i<f32.length;i++){
+    const v = Math.max(-1, Math.min(1, f32[i]));
+    out[i] = v < 0 ? v*0x8000 : v*0x7FFF;
+  }
+  return out;
+};
+async function toMp3(buf, kbps, onProgress){
+  const ch = Math.min(2, buf.numberOfChannels);
+  const enc = new lamejs.Mp3Encoder(ch, buf.sampleRate, kbps);
+  const L = i16(buf.getChannelData(0));
+  const R = ch > 1 ? i16(buf.getChannelData(1)) : null;
+  const BLOCK = 1152, parts = [];
+  for(let i=0;i<L.length;i+=BLOCK){
+    const l = L.subarray(i, i+BLOCK);
+    const r = R ? R.subarray(i, i+BLOCK) : null;
+    const chunk = ch > 1 ? enc.encodeBuffer(l, r) : enc.encodeBuffer(l);
+    if(chunk.length) parts.push(chunk);
+    if((i / BLOCK) % 220 === 0){
+      onProgress(i / L.length);
+      await new Promise(r => setTimeout(r));
+    }
+  }
+  const tail = enc.flush();
+  if(tail.length) parts.push(tail);
+  return new Blob(parts, {type:"audio/mpeg"});
+}
+
+/* ---------------------------------------------------------------
+   Action
+--------------------------------------------------------------- */
+$("go").addEventListener("click", async () => {
+  if(!buffer) return;
+  stop();
+  const btn = $("go"), bar = $("prog"), dl = $("dl");
+  btn.disabled = true; dl.classList.add("hidden");
+  bar.style.width = "6%";
+  say("Décodage et découpe…");
+  try{
+    const { rendered, rate } = await render();
+    bar.style.width = "32%";
+    let blob, ext;
+    if(format === "mp3"){
+      say("Encodage MP3…");
+      blob = await toMp3(rendered, +$("kbps").value, p => bar.style.width = (32 + p*62) + "%");
+      ext = "mp3";
+    }else{
+      say("Écriture du WAV…");
+      await new Promise(r => setTimeout(r, 30));
+      blob = toWav(rendered);
+      ext = "wav";
+    }
+    bar.style.width = "100%";
+    const url = URL.createObjectURL(blob);
+    dl.href = url;
+    dl.download = `${srcName}.${ext}`;
+    $("dlSize").textContent = `${ext} · ${fmtSize(blob.size)}`;
+    dl.classList.remove("hidden");
+    say(`Terminé — ${rate/1000} kHz.`);
+  }catch(err){
+    console.error(err);
+    say("L'extraction a échoué. Réduis la sélection ou réessaie en WAV.", true);
+    bar.style.width = "0";
+  }finally{
+    btn.disabled = false;
+    setTimeout(() => bar.style.width = "0", 2500);
+  }
+});
+</script>
+</body>
+</html>
