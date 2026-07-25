@@ -1,1 +1,8 @@
-
+{
+  "name": "prism-audio",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Extracteur et convertisseur audio 100 % navigateur, avec licence Gumroad pour la version Pro.",
+  "engines": { "node": ">=20" }
+}
