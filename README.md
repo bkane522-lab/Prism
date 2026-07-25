@@ -41,7 +41,7 @@ Version gratuite libre d'accès, version **Prism Pro** déverrouillée par une c
 - Export individuel et téléchargement groupé en `.zip`
 - Format MP4/M4A en plus du MP3 et du WAV, quand le navigateur le permet
 - Usage hors ligne et installation en PWA
-- Écran d'activation par clé Gumroad, mémorisation locale, bouton de désactivation
+- Activation par l'e-mail d'achat Gumroad, mémorisation locale, bouton pour changer de compte
 
 ---
 
@@ -83,7 +83,7 @@ Prérequis : Node 20 ou plus.
 npm i -g vercel          # une seule fois
 git clone <ton-dépôt> prism
 cd prism
-cp .env.example .env.local     # puis renseigne GUMROAD_PRODUCT_ID
+cp .env.example .env.local     # puis renseigne les deux variables Gumroad
 vercel dev
 ```
 
@@ -110,8 +110,8 @@ sont bloqués par le navigateur.
 
    | Nom | Valeur | Obligatoire |
    |---|---|---|
-   | `GUMROAD_PRODUCT_ID` | l'ID du produit Gumroad | oui |
-   | `GUMROAD_MAX_USES` | plafond d'activations par clé (défaut 500) | non |
+   | `GUMROAD_ACCESS_TOKEN` | jeton d'accès Gumroad (Settings → Advanced → Applications) | oui |
+   | `GUMROAD_PRODUCT_PERMALINK` | le code du lien produit, ex. `tgmmus` dans `bkane522.gumroad.com/l/tgmmus` | oui |
 
 5. Deploy. Vérifie ensuite que `https://ton-domaine/private/pro.js` renvoie bien **404** :
    si ce fichier est accessible, le verrouillage ne sert à rien.
@@ -123,18 +123,17 @@ et garde le contenu en mémoire.
 
 ## Configuration Gumroad
 
-1. Crée le produit : type **Digital product**, prix **19 €**, paiement unique.
-2. Dans les réglages du produit, active **Generate a unique license key per sale**.
-   C'est ce qui crée la clé envoyée à l'acheteur ; sans ça, rien ne fonctionne.
-3. Récupère l'**ID du produit** et mets-le dans `GUMROAD_PRODUCT_ID` sur Vercel.
-4. Dans le contenu livré à l'acheteur, mets simplement le lien vers ton Prism et cette phrase :
-   « Colle ta clé de licence dans la section Prism Pro, en bas de la page. »
-5. Facultatif : dans l'e-mail de reçu, rappelle que la clé fonctionne sur plusieurs appareils.
+1. Crée le produit : **Digital product**, prix **19 €**, paiement unique, puis publie-le.
+2. Dans l'onglet **Contenu**, mets le texte que reçoit l'acheteur — le lien vers Prism et la
+   consigne : « Saisis l'e-mail de ton achat dans la section Prism Pro, en bas de la page ».
+3. Génère un jeton d'accès : **Settings → Advanced → Applications**. Crée une application
+   (Redirect URI : `http://127.0.0.1`, sa valeur n'a pas d'importance ici), puis
+   **Generate access token**. Ce jeton vaut mot de passe : il ne va que dans Vercel.
+4. Relève le code de ton lien produit (`tgmmus` dans `bkane522.gumroad.com/l/tgmmus`).
+5. Renseigne `GUMROAD_ACCESS_TOKEN` et `GUMROAD_PRODUCT_PERMALINK` dans Vercel, puis redéploie.
 
-L'API utilisée est `POST https://api.gumroad.com/v2/licenses/verify`, avec
-`increment_uses_count: false` pour que le compteur d'activations ne gonfle pas à chaque rechargement.
-
----
+L'API utilisée est `GET /v2/products` (une fois, pour résoudre l'identifiant du produit) puis
+`GET /v2/sales` filtré par produit et par e-mail.
 
 ## Comment fonctionne le verrouillage Pro
 
@@ -142,27 +141,35 @@ Prism est un fichier HTML public : tout ce qu'il contient est lisible par n'impo
 Un test `if (isPro)` écrit dans la page se contourne en quelques secondes. Le code Pro n'est donc
 jamais présent dans la page tant qu'un achat n'est pas prouvé :
 
-1. L'acheteur colle sa clé, la page appelle `POST /api/license`.
-2. La fonction serverless interroge Gumroad avec `GUMROAD_PRODUCT_ID`, qui ne quitte jamais le serveur.
-3. Si la clé est valide, la réponse contient le **texte** de `private/pro.js`, exécuté par la page.
-4. La clé et le code sont conservés en `localStorage` pour que l'application fonctionne hors ligne
-   ensuite. Une revérification silencieuse a lieu au bout de 14 jours : si l'achat a été remboursé
-   ou la clé désactivée, tout est effacé automatiquement.
+1. L'acheteur saisit l'e-mail de son achat, la page appelle `POST /api/license`.
+2. La fonction serverless interroge les ventes Gumroad avec le jeton d'accès, qui ne quitte
+   jamais le serveur, et vérifie qu'une vente existe pour ce produit et cet e-mail, sans
+   remboursement ni litige.
+3. Si c'est bon, la réponse contient le **texte** de `private/pro.js`, exécuté par la page.
+4. L'e-mail et le code sont conservés en `localStorage` pour que l'application fonctionne hors
+   ligne ensuite. Une revérification silencieuse a lieu au bout de 14 jours : si l'achat a été
+   remboursé, tout est effacé automatiquement.
 
-Le bouton **Désactiver** vide le stockage local et retire les fonctions Pro immédiatement.
+Le bouton **Changer** vide le stockage local et retire les fonctions Pro immédiatement.
+
+Ce que ce système protège et ce qu'il ne protège pas : il empêche qu'on récupère le code Pro sans
+avoir acheté, et il coupe l'accès en cas de remboursement. Il n'empêche pas un acheteur de
+communiquer son adresse à un ami, ni un acheteur déterminé de copier le code Pro depuis son propre
+navigateur. Une limite de 12 tentatives par IP toutes les 10 minutes freine les essais d'adresses
+au hasard. Pour un produit à 19 €, c'est le bon compromis ; verrouiller davantage coûterait plus
+cher en complexité que ce que ça rapporterait.
 
 Messages renvoyés par l'API, tous traduits dans l'interface :
 
 | `reason` | Statut HTTP | Message affiché |
 |---|---|---|
 | — | 200 | Prism Pro est actif. |
-| `invalid` | 400 / 403 | Clé inconnue. Vérifie l'e-mail d'achat Gumroad. |
-| `refunded` | 403 | Cet achat a été remboursé : la licence n'est plus active. |
-| `disabled` | 403 | Cette clé a été désactivée ou a trop d'activations. |
-| `config` | 500 | Licence non configurée côté serveur. Contacte le support. |
-| `offline` | 502 | Serveur de licence injoignable. Réessaie quand tu seras en ligne. |
-
----
+| `invalid` | 400 | Cette adresse e-mail n'est pas valide. |
+| `notfound` | 403 | Aucun achat trouvé pour cette adresse. Utilise l'e-mail indiqué sur ton reçu Gumroad. |
+| `refunded` | 403 | Cet achat a été remboursé : Prism Pro n'est plus actif. |
+| `toomany` | 429 | Trop de tentatives. Réessaie dans quelques minutes. |
+| `config` | 500 | Vérification non configurée côté serveur. Contacte le support. |
+| `offline` | 502 | Serveur injoignable. Réessaie quand tu seras en ligne. |
 
 ## Mode hors ligne
 
@@ -213,16 +220,18 @@ le WAV, lui, fonctionne toujours.
 ### Activation Pro
 
 - [ ] Les zones Traitement et Extraits multiples sont grisées ; un clic dessus fait défiler vers l'achat.
-- [ ] Clé bidon : « Clé inconnue. »
-- [ ] Vraie clé de test (fais-toi un achat à 0 € avec un code promo 100 %) : « Prism Pro est actif. »
+- [ ] Adresse jamais utilisée : « Aucun achat trouvé pour cette adresse. »
+- [ ] Adresse mal formée : message d'adresse invalide.
+- [ ] Vraie adresse d'achat (fais-toi un achat de test avec un code promo 100 %) : « Prism Pro est actif. »
 - [ ] Après activation, les zones Pro se déverrouillent et le bouton MP4 devient actif si le navigateur le permet.
-- [ ] Recharger la page : Prism Pro reste actif sans redemander la clé.
-- [ ] **Désactiver** : les fonctions Pro disparaissent immédiatement, la clé n'est plus mémorisée.
+- [ ] Recharger la page : Prism Pro reste actif sans redemander l'adresse.
+- [ ] **Changer** : les fonctions Pro disparaissent immédiatement, l'adresse n'est plus mémorisée.
 - [ ] Rembourser l'achat de test dans Gumroad, effacer `prism.lic.at` du localStorage, recharger :
-      la licence se coupe avec le bon message.
+      l'accès se coupe avec le bon message.
+- [ ] Saisir treize fois de suite une adresse au hasard : le message « Trop de tentatives » apparaît.
 - [ ] Couper le réseau et recharger : Prism Pro reste actif (pas de coupure hors ligne).
 - [ ] Vérifier que `https://ton-domaine/private/pro.js` renvoie 404.
-- [ ] Vérifier dans l'onglet Réseau qu'aucune réponse ne contient `GUMROAD_PRODUCT_ID`.
+- [ ] Vérifier dans l'onglet Réseau qu'aucune réponse ne contient le jeton d'accès Gumroad.
 
 ### Fonctions Pro
 
