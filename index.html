@@ -300,6 +300,14 @@ async function loadFromUrl(){
   const note = $("urlNote"), bar = $("prog");
   if(!u) return;
   note.classList.remove("err");
+
+  const STREAMS = /(youtube\.com|youtu\.be|spotify\.com|deezer\.com|soundcloud\.com|tiktok\.com|instagram\.com|dailymotion\.com|netflix\.com)/i;
+  if(STREAMS.test(u)){
+    note.classList.add("err");
+    note.textContent = "Cette adresse est une page de streaming, pas un fichier. Prism lit des fichiers directs (.mp3, .mp4, .wav) ou des fichiers déposés depuis ton appareil.";
+    return;
+  }
+
   note.textContent = "Téléchargement…";
   try{
     const res = await fetch(u, { mode:"cors" });
