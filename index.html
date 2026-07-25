@@ -71,7 +71,7 @@ h1{font-family:"Chakra Petch",sans-serif;font-weight:300;font-size:34px;letter-s
   box-shadow:0 0 40px -10px rgba(34,211,238,.6),inset 0 0 60px -30px var(--violet)}
 #drop .big{font-family:"Chakra Petch",sans-serif;letter-spacing:.2em;font-size:15px;text-transform:uppercase}
 #drop .small{color:var(--muted);font-size:12px;margin-top:8px;line-height:1.5}
-#file{display:none}
+#file{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;clip:rect(0 0 0 0);border:0;padding:0}
 
 /* ---------- lien externe ---------- */
 .url-row{display:flex;align-items:center;gap:8px;margin-top:12px;padding:6px 6px 6px 18px}
@@ -148,11 +148,14 @@ footer{text-align:center;color:#5c5482;font-size:11px;letter-spacing:.14em;margi
   <h1>PRISM</h1>
   <p class="tagline">Extrais la piste audio d'une vidéo, ou convertis un son.<br>Tout est traité dans ton navigateur, rien n'est envoyé.</p>
 
-  <label id="drop" for="file">
-    <div class="big">Déposer un fichier</div>
-    <div class="small">MP4 · MOV · WEBM · MKV · MP3 · M4A · WAV · OGG<br>ou touche ici pour choisir</div>
-    <input id="file" type="file" accept="video/*,audio/*">
-  </label>
+  <div id="drop" role="button" tabindex="0" aria-label="Choisir un fichier audio ou vidéo">
+    <div class="big">Choisir un fichier</div>
+    <div class="small">MP4 · MOV · WEBM · MKV · MP3 · M4A · WAV · OGG<br>touche ici pour ouvrir tes fichiers</div>
+  </div>
+  <button class="mini" id="browseAll" style="width:100%;margin-top:10px">Parcourir tous les fichiers</button>
+  <input id="file" type="file"
+    accept="audio/*,video/*,.wav,.wave,.mp3,.m4a,.aac,.flac,.ogg,.opus,.aiff,.aif,.amr,.mp4,.mov,.mkv,.webm,.3gp">
+  <p class="note" id="pickNote">Tes sons WAV sont souvent rangés dans Enregistrements, Musique ou Download.</p>
 
   <div class="sep">ou depuis un lien</div>
   <div class="row url-row">
@@ -283,6 +286,21 @@ tick(); setInterval(tick, 20000);
    Chargement du fichier
 --------------------------------------------------------------- */
 const drop = $("drop");
+const picker = $("file");
+const ACCEPT = picker.getAttribute("accept");
+
+function openPicker(all){
+  if(all) picker.removeAttribute("accept");
+  else picker.setAttribute("accept", ACCEPT);
+  picker.value = "";
+  picker.click();
+}
+drop.addEventListener("click", () => openPicker(false));
+drop.addEventListener("keydown", e => {
+  if(e.key === "Enter" || e.key === " "){ e.preventDefault(); openPicker(false); }
+});
+$("browseAll").addEventListener("click", () => openPicker(true));
+
 ["dragenter","dragover"].forEach(e => drop.addEventListener(e, ev => {
   ev.preventDefault(); drop.classList.add("hot");
 }));
