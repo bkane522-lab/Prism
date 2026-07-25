@@ -280,14 +280,17 @@ footer{text-align:center;color:var(--dim);font-size:11px;letter-spacing:.14em;ma
   <div class="eyebrow">Prism Pro</div>
   <div id="licBox">
     <div class="row url-row" id="licRow">
-      <input id="licKey" type="text" placeholder="Clé de licence Gumroad" spellcheck="false" autocapitalize="characters">
+      <input id="licKey" type="email" inputmode="email" placeholder="E-mail utilisé pour l'achat"
+             spellcheck="false" autocapitalize="off" autocomplete="email">
       <button class="mini" id="licBtn">Activer</button>
     </div>
     <div class="row hidden" id="licActive">
       <span id="licWho">Licence active</span>
-      <button class="mini ghost" id="licOff" style="margin-left:auto">Désactiver</button>
+      <button class="mini ghost" id="licOff" style="margin-left:auto">Changer</button>
     </div>
     <p class="note" id="licNote">Fondus, normalisation, extraits multiples, export groupé, MP4 et usage hors ligne. Achat unique, 19 €.</p>
+    <a class="mini ghost" id="buyBtn" href="https://bkane522.gumroad.com/l/tgmmus" target="_blank" rel="noopener"
+       style="display:block;width:100%;margin-top:10px;text-align:center;text-decoration:none;padding:13px 18px">Obtenir Prism Pro — 19 €</a>
     <button class="mini ghost hidden" id="installBtn" style="width:100%;margin-top:10px">Installer l'application</button>
   </div>
 
@@ -829,22 +832,23 @@ $("exportAll").addEventListener("click", async () => {
 /* =====================================================================
    Licence
 ===================================================================== */
-const LIC = { key:"prism.lic.key", code:"prism.lic.code", at:"prism.lic.at", who:"prism.lic.who" };
+const LIC = { key:"prism.lic.email", code:"prism.lic.code", at:"prism.lic.at", who:"prism.lic.who" };
 const RECHECK_MS = 14 * 24 * 3600 * 1000;
 
 const MESSAGES = {
-  invalid:  "Clé inconnue. Vérifie l'e-mail d'achat Gumroad.",
-  refunded: "Cet achat a été remboursé : la licence n'est plus active.",
-  disabled: "Cette clé a été désactivée ou a trop d'activations.",
-  config:   "Licence non configurée côté serveur. Contacte le support.",
-  offline:  "Serveur de licence injoignable. Réessaie quand tu seras en ligne.",
+  invalid:  "Cette adresse e-mail n'est pas valide.",
+  notfound: "Aucun achat trouvé pour cette adresse. Utilise l'e-mail indiqué sur ton reçu Gumroad.",
+  refunded: "Cet achat a été remboursé : Prism Pro n'est plus actif.",
+  toomany:  "Trop de tentatives. Réessaie dans quelques minutes.",
+  config:   "Vérification non configurée côté serveur. Contacte le support.",
+  offline:  "Serveur injoignable. Réessaie quand tu seras en ligne.",
   ok:       "Prism Pro est actif."
 };
 
 function promptUnlock(){
   $("licBox").scrollIntoView({ behavior:"smooth", block:"center" });
   $("licNote").classList.remove("err");
-  $("licNote").textContent = "Cette fonction fait partie de Prism Pro. Achat unique, 19 €.";
+  $("licNote").textContent = "Cette fonction fait partie de Prism Pro. Achat unique, 19 €, puis saisis ton e-mail d'achat ici.";
 }
 document.querySelectorAll(".pro-zone").forEach(z => z.addEventListener("click", () => {
   if(!state.pro) promptUnlock();
@@ -852,12 +856,14 @@ document.querySelectorAll(".pro-zone").forEach(z => z.addEventListener("click", 
 
 function setPro(on, who){
   state.pro = on;
+  if(!on) $("buyBtn").classList.remove("hidden");
   document.querySelectorAll(".pro-zone").forEach(z => z.setAttribute("data-locked", String(!on)));
   $("licRow").classList.toggle("hidden", on);
   $("licActive").classList.toggle("hidden", !on);
   if(on){
     $("licWho").textContent = who ? `Licence active · ${who}` : "Licence active";
     if(M4A_MIME) $("btnM4a").disabled = false;
+    $("buyBtn").classList.add("hidden");
     registerServiceWorker();
   }
 }
@@ -879,11 +885,11 @@ function runProCode(code){
   catch(err){ console.error(err); return false; }
 }
 
-async function verify(key){
+async function verify(email){
   const res = await fetch("/api/license", {
     method:"POST",
     headers:{ "Content-Type":"application/json" },
-    body: JSON.stringify({ key })
+    body: JSON.stringify({ email })
   });
   let data = {};
   try{ data = await res.json(); }catch(_){}
@@ -891,16 +897,16 @@ async function verify(key){
 }
 
 $("licBtn").addEventListener("click", async () => {
-  const key = $("licKey").value.trim();
+  const email = $("licKey").value.trim().toLowerCase();
   const note = $("licNote");
-  if(!key){ note.classList.add("err"); note.textContent = "Colle la clé reçue par e-mail."; return; }
+  if(!email){ note.classList.add("err"); note.textContent = "Saisis l'e-mail utilisé lors de l'achat."; return; }
   note.classList.remove("err");
   note.textContent = "Vérification…";
   try{
-    const { data } = await verify(key);
+    const { data } = await verify(email);
     if(!data.ok){
       note.classList.add("err");
-      note.textContent = MESSAGES[data.reason] || data.error || MESSAGES.invalid;
+      note.textContent = MESSAGES[data.reason] || MESSAGES.notfound;
       return;
     }
     if(!runProCode(data.code)){
@@ -908,7 +914,7 @@ $("licBtn").addEventListener("click", async () => {
       note.textContent = "Le module Pro n'a pas pu se charger. Recharge la page.";
       return;
     }
-    storeLicense(key, data.code, data.buyer);
+    storeLicense(email, data.code, data.buyer);
     setPro(true, data.buyer);
     note.classList.remove("err");
     note.textContent = MESSAGES.ok;
@@ -926,28 +932,28 @@ $("licOff").addEventListener("click", () => {
   setPro(false);
   $("licKey").value = "";
   $("licNote").classList.remove("err");
-  $("licNote").textContent = "Licence retirée de cet appareil. Tu peux saisir une autre clé.";
+  $("licNote").textContent = "Prism Pro retiré de cet appareil. Tu peux saisir une autre adresse.";
 });
 
 /* Réactivation au chargement : code en cache, puis revérification espacée */
 (async function restoreLicense(){
-  let key, code, at, who;
+  let email, code, at, who;
   try{
-    key = localStorage.getItem(LIC.key);
+    email = localStorage.getItem(LIC.key);
     code = localStorage.getItem(LIC.code);
     at = Number(localStorage.getItem(LIC.at) || 0);
     who = localStorage.getItem(LIC.who);
   }catch(_){ return; }
-  if(!key || !code) return;
+  if(!email || !code) return;
 
   if(runProCode(code)) setPro(true, who);
 
   if(Date.now() - at < RECHECK_MS || !navigator.onLine) return;
   try{
-    const { data } = await verify(key);
+    const { data } = await verify(email);
     if(data.ok){
-      storeLicense(key, data.code, data.buyer);
-    }else if(data.reason === "refunded" || data.reason === "disabled" || data.reason === "invalid"){
+      storeLicense(email, data.code, data.buyer);
+    }else if(data.reason === "refunded" || data.reason === "notfound"){
       clearLicense();
       delete window.PrismPro;
       setPro(false);
