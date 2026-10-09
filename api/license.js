@@ -1,144 +1,126 @@
-/* =====================================================================
-   api/license.js — vérification d'achat Gumroad par adresse e-mail.
-
-   Pourquoi l'e-mail et pas une clé de licence : Gumroad n'expose pas
-   toujours l'option « clé de licence par vente ». La vérification par
-   e-mail utilise l'API des ventes, qui fonctionne dans tous les cas.
-
-   Le jeton d'accès Gumroad reste côté serveur : il n'est jamais envoyé
-   au navigateur. La réponse ne contient que le code du module Pro.
-
-   Réponses :
-     200 { ok:true,  buyer, code }
-     400 { ok:false, reason:"invalid" }     e-mail mal formé
-     403 { ok:false, reason:"notfound" }    aucun achat pour cet e-mail
-     403 { ok:false, reason:"refunded" }    achat remboursé ou contesté
-     429 { ok:false, reason:"toomany" }     trop de tentatives
-     500 { ok:false, reason:"config" }      variables d'environnement absentes
-     502 { ok:false, reason:"offline" }     Gumroad injoignable
-===================================================================== */
-
+/* Vérification Gumroad par e-mail. Le jeton reste exclusivement côté serveur.
+   L'e-mail confirme un achat, pas l'identité de la personne qui le saisit. */
 import fs from "node:fs";
-import path from "node:path";
 
 const API = "https://api.gumroad.com/v2";
 const TOKEN = process.env.GUMROAD_ACCESS_TOKEN;
 const PERMALINK = (process.env.GUMROAD_PRODUCT_PERMALINK || "").trim();
-
-/* --- Module Pro, lu une seule fois puis gardé en mémoire --- */
+const CONFIGURED_ID = (process.env.GUMROAD_PRODUCT_ID || "").trim();
+let cachedProductId = CONFIGURED_ID || null;
 let cachedCode = null;
 function proCode(){
-  if(cachedCode) return cachedCode;
-  cachedCode = fs.readFileSync(path.join(process.cwd(), "private", "pro.js"), "utf8");
+  if(!cachedCode) cachedCode = fs.readFileSync(new URL("../private/pro.js", import.meta.url), "utf8");
   return cachedCode;
 }
-
-/* --- Identifiant du produit, résolu depuis le permalien --- */
-let cachedProductId = null;
-async function productId(){
+function permalink(value){
+  const raw = String(value || "").trim();
+  try{ return new URL(raw).pathname.replace(/\/$/, "").split("/").pop(); }
+  catch{ return raw; }
+}
+async function gumroad(resource, params, signal){
+  const url = new URL(`${API}/${resource}`);
+  url.searchParams.set("access_token", TOKEN);
+  for(const [key, value] of Object.entries(params || {})) url.searchParams.set(key, value);
+  const response = await fetch(url, { signal });
+  const data = await response.json();
+  if(!response.ok || !data.success) throw new Error("Gumroad indisponible");
+  return data;
+}
+async function productId(signal){
   if(cachedProductId) return cachedProductId;
-  const r = await fetch(`${API}/products?access_token=${encodeURIComponent(TOKEN)}`);
-  const data = await r.json();
-  if(!r.ok || !data.success || !Array.isArray(data.products)){
-    throw new Error("Liste des produits indisponible");
-  }
+  const data = await gumroad("products", {}, signal);
+  if(!Array.isArray(data.products)) throw new Error("Réponse produits invalide");
   const match = data.products.find(p =>
-    p.custom_permalink === PERMALINK ||
-    p.short_url === PERMALINK ||
-    (typeof p.short_url === "string" && p.short_url.endsWith("/" + PERMALINK))
+    p.custom_permalink === PERMALINK || permalink(p.short_url) === PERMALINK
   );
-  if(!match) throw new Error(`Produit "${PERMALINK}" introuvable`);
-  cachedProductId = match.id;
+  if(!match || !match.id) throw new Error("Produit introuvable");
+  cachedProductId = String(match.id);
   return cachedProductId;
 }
-
-/* --- Garde-fou anti-force brute, à l'échelle d'une instance --- */
 const hits = new Map();
 function tooMany(ip){
-  const now = Date.now();
-  const win = 10 * 60 * 1000;
-  const list = (hits.get(ip) || []).filter(t => now - t < win);
-  list.push(now);
-  hits.set(ip, list);
-  if(hits.size > 500) hits.clear();
-  return list.length > 12;
+  const now = Date.now(), win = 10 * 60 * 1000;
+  for(const [key, entry] of hits){ if(now - entry.at >= win) hits.delete(key); }
+  let entry = hits.get(ip);
+  if(!entry){
+    // Une instance à capacité pleine refuse au lieu d'effacer ses limites.
+    if(hits.size >= 2000) return true;
+    entry = { at:now, count:0 }; hits.set(ip, entry);
+  }
+  return ++entry.count > 12;
 }
-
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-const isRefunded = s =>
-  s.refunded === true || s.disputed === true ||
+const isRefunded = s => s.refunded === true || s.disputed === true ||
   s.chargedback === true || s.chargebacked === true;
-
 function send(res, status, body){
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   return res.status(status).json(body);
 }
-
+function nextPage(data){
+  if(data.next_page_key) return String(data.next_page_key);
+  if(!data.next_page_url) return null;
+  const url = new URL(data.next_page_url, `${API}/sales`);
+  if(url.origin !== "https://api.gumroad.com" || url.pathname !== "/v2/sales"){
+    throw new Error("Pagination invalide");
+  }
+  const key = url.searchParams.get("page_key");
+  if(!key) throw new Error("Curseur absent");
+  return key;
+}
 export default async function handler(req, res){
   if(req.method !== "POST"){
     res.setHeader("Allow", "POST");
     return send(res, 405, { ok:false, reason:"invalid" });
   }
-  if(!TOKEN || !PERMALINK){
-    return send(res, 500, { ok:false, reason:"config" });
-  }
-
-  const ip = (req.headers["x-forwarded-for"] || "").split(",")[0].trim() || "inconnu";
+  if(!TOKEN || (!PERMALINK && !CONFIGURED_ID)) return send(res, 500, { ok:false, reason:"config" });
+  const ip = String(req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "inconnu").split(",")[0].trim();
   if(tooMany(ip)){
+    res.setHeader("Retry-After", "600");
     return send(res, 429, { ok:false, reason:"toomany" });
   }
-
   let body = req.body;
   if(typeof body === "string"){
-    try{ body = JSON.parse(body); }catch(_){ body = {}; }
+    try{ body = JSON.parse(body); }catch{ body = {}; }
   }
-  const email = String((body && body.email) || "").trim().toLowerCase();
-  if(!EMAIL_RE.test(email) || email.length > 160){
-    return send(res, 400, { ok:false, reason:"invalid" });
-  }
-
-  let sales;
+  const email = String(body?.email || "").trim().toLowerCase();
+  if(!EMAIL_RE.test(email) || email.length > 160) return send(res, 400, { ok:false, reason:"invalid" });
+  let found = false, valid = null;
   try{
-    const pid = await productId();
-    const url = `${API}/sales?access_token=${encodeURIComponent(TOKEN)}`
-      + `&product_id=${encodeURIComponent(pid)}`
-      + `&email=${encodeURIComponent(email)}`;
-    const r = await fetch(url);
-    const data = await r.json();
-    if(!r.ok || !data.success){
-      console.error("Gumroad /sales:", r.status, data && data.message);
-      return send(res, 502, { ok:false, reason:"offline" });
+    const signal = AbortSignal.timeout(12000);
+    const pid = await productId(signal);
+    let key = null;
+    const seen = new Set();
+    for(let page = 0; page < 25; page++){
+      const data = await gumroad("sales", {
+        product_id:pid, email, ...(key ? { page_key:key } : {})
+      }, signal);
+      if(!Array.isArray(data.sales)) throw new Error("Réponse ventes invalide");
+      const mine = data.sales.filter(s => {
+        const e = String(s.email || s.purchase_email || "").trim().toLowerCase();
+        // Si l'identifiant est présent, aucune comparaison approximative du lien.
+        const productMatches = s.product_id != null
+          ? String(s.product_id) === pid
+          : !!PERMALINK && permalink(s.product_permalink) === PERMALINK;
+        return e === email && productMatches;
+      });
+      found ||= mine.length > 0;
+      valid = mine.find(s => !isRefunded(s));
+      if(valid) break;
+      key = nextPage(data);
+      if(!key) break;
+      if(seen.has(key) || page === 24) throw new Error("Pagination incomplète");
+      seen.add(key);
     }
-    sales = Array.isArray(data.sales) ? data.sales : [];
-  }catch(err){
-    console.error("Gumroad injoignable:", err.message);
+  }catch{
+    // Ne pas journaliser le jeton, l'e-mail ou les réponses des ventes.
     return send(res, 502, { ok:false, reason:"offline" });
   }
-
-  // On revérifie l'adresse et le produit côté serveur : le filtre de
-  // l'API ne dispense pas de contrôler ce qui revient réellement.
-  const mine = sales.filter(s => {
-    const e = String(s.email || s.purchase_email || "").trim().toLowerCase();
-    const link = String(s.product_permalink || "");
-    return e === email && (link === PERMALINK || link.endsWith("/" + PERMALINK) || link.includes(PERMALINK));
-  });
-
-  if(!mine.length){
-    return send(res, 403, { ok:false, reason:"notfound" });
-  }
-  const valid = mine.find(s => !isRefunded(s));
-  if(!valid){
-    return send(res, 403, { ok:false, reason:"refunded" });
-  }
-
-  let code;
+  if(!found) return send(res, 403, { ok:false, reason:"notfound" });
+  if(!valid) return send(res, 403, { ok:false, reason:"refunded" });
   try{
-    code = proCode();
-  }catch(err){
-    console.error("Module Pro illisible:", err.message);
+    return send(res, 200, { ok:true, buyer:email, code:proCode() });
+  }catch{
     return send(res, 500, { ok:false, reason:"config" });
   }
-
-  return send(res, 200, { ok:true, buyer: valid.email || email, code });
 }
