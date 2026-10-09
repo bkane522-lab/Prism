@@ -1,7 +1,7 @@
 /* =====================================================================
    private/pro.js — module Prism Pro
    Ce fichier n'est JAMAIS servi en statique. Il est renvoyé par
-   /api/license uniquement après vérification d'une clé Gumroad valide,
+   /api/license uniquement après vérification d'un achat Gumroad,
    puis exécuté dans la page via new Function(code).
    Ne rien mettre ici qui doive rester secret côté serveur : le code
    arrive dans le navigateur de l'acheteur, comme n'importe quel script.
@@ -10,7 +10,7 @@
   "use strict";
 
   const P = {};
-  P.version = "1.0.0";
+  P.version = "1.0.2";
 
   /* -------------------------------------------------------------
      Fondus d'entrée et de sortie (courbe douce, sans clic)
