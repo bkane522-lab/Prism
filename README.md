@@ -3,10 +3,12 @@
 Application web qui extrait et convertit la piste audio d'un fichier vidéo ou audio.
 Tout le traitement a lieu dans le navigateur : aucun fichier n'est téléversé.
 
-Version gratuite libre d'accès, version **Prism Pro** déverrouillée par une clé de licence Gumroad
+Version gratuite libre d'accès, version **Prism Pro** déverrouillée par une vérification d’achat Gumroad par e-mail
 (achat unique, 19 €).
 
 ---
+
+Version de reprise : **1.0.2**. Voir `REPRISE-PRISM.md` pour les corrections, validations et limites.
 
 ## Sommaire
 
@@ -31,14 +33,14 @@ Version gratuite libre d'accès, version **Prism Pro** déverrouillée par une c
 - Prévisualisation : forme d'onde, lecture de la sélection
 - Découpe d'un extrait (début / fin)
 - Export MP3 et WAV, avec choix du débit, de l'échantillonnage et des canaux
-- Une extraction à la fois
+- Une extraction à la fois ; les imports et réglages sont verrouillés pendant le traitement
 
 ### Prism Pro — 19 €, achat unique
 
 - Fondus d'entrée et de sortie réglables de 0 à 10 s
 - Normalisation du volume (crête à −1 dBFS)
 - Création de plusieurs extraits sur une même source
-- Export individuel et téléchargement groupé en `.zip`
+- Export de la sélection courante et téléchargement groupé des extraits en `.zip`
 - Format MP4/M4A en plus du MP3 et du WAV, quand le navigateur le permet
 - Usage hors ligne et installation en PWA
 - Activation par l'e-mail d'achat Gumroad, mémorisation locale, bouton pour changer de compte
@@ -62,7 +64,7 @@ prism/
 │   │   ├── icon-192.png
 │   │   ├── icon-512.png
 │   │   └── icon-maskable-512.png
-│   └── vendor/                 (facultatif) déposer ici lame.min.js pour un MP3 hors ligne
+│   └── vendor/                 encodeur lamejs 1.2.1 inclus et notice LGPL
 ├── .env.example
 ├── .gitignore
 ├── package.json
@@ -111,6 +113,7 @@ sont bloqués par le navigateur.
    | Nom | Valeur | Obligatoire |
    |---|---|---|
    | `GUMROAD_ACCESS_TOKEN` | jeton d'accès Gumroad (Settings → Advanced → Applications) | oui |
+   | `GUMROAD_PRODUCT_ID` | identifiant API exact du produit, différent du code URL ; évite la résolution du produit | facultatif |
    | `GUMROAD_PRODUCT_PERMALINK` | le code du lien produit, ex. `tgmmus` dans `bkane522.gumroad.com/l/tgmmus` | oui |
 
 5. Deploy. Vérifie ensuite que `https://ton-domaine/private/pro.js` renvoie bien **404** :
@@ -148,7 +151,8 @@ jamais présent dans la page tant qu'un achat n'est pas prouvé :
 3. Si c'est bon, la réponse contient le **texte** de `private/pro.js`, exécuté par la page.
 4. L'e-mail et le code sont conservés en `localStorage` pour que l'application fonctionne hors
    ligne ensuite. Une revérification silencieuse a lieu au bout de 14 jours : si l'achat a été
-   remboursé, tout est effacé automatiquement.
+   remboursé, le stockage de licence est effacé à la prochaine vérification en ligne qui confirme le refus.
+   Un appareil qui reste hors ligne conserve le code déjà reçu ; ce mécanisme ne garantit pas une révocation immédiate.
 
 Le bouton **Changer** vide le stockage local et retire les fonctions Pro immédiatement.
 
@@ -156,8 +160,8 @@ Ce que ce système protège et ce qu'il ne protège pas : il empêche qu'on réc
 avoir acheté, et il coupe l'accès en cas de remboursement. Il n'empêche pas un acheteur de
 communiquer son adresse à un ami, ni un acheteur déterminé de copier le code Pro depuis son propre
 navigateur. Une limite de 12 tentatives par IP toutes les 10 minutes freine les essais d'adresses
-au hasard. Pour un produit à 19 €, c'est le bon compromis ; verrouiller davantage coûterait plus
-cher en complexité que ce que ça rapporterait.
+au hasard. Cette limite est conservée en mémoire d’une instance serveur : elle n’est pas partagée entre
+les instances Vercel. L’e-mail seul ne prouve pas l’identité de celui qui l’utilise.
 
 Messages renvoyés par l'API, tous traduits dans l'interface :
 
@@ -177,20 +181,24 @@ Le service worker n'est enregistré **qu'après activation d'une licence**. Il m
 l'application, les icônes et l'encodeur MP3.
 
 L'encodeur MP3 (`lamejs`) est chargé dans cet ordre : `/vendor/lame.min.js`, puis deux CDN.
-Pour un hors-ligne complet et indépendant des CDN, télécharge `lame.min.js` (lamejs 1.2.x)
-et place-le dans `public/vendor/`. Sans lui, le MP3 dépend du cache du service worker ;
-le WAV, lui, fonctionne toujours.
+La copie `public/vendor/lame.min.js` (lamejs 1.2.1) est incluse dans cette version.
+Le service worker met uniquement les ressources de Prism en cache, jamais les médias importés,
+les fichiers distants ou les réponses de licence. Une première ouverture en ligne est nécessaire.
 
 ---
 
 ## Limites connues
 
-- **Décodage** : Prism s'appuie sur les codecs du navigateur. MP4/AAC, WebM, MP3, WAV, OGG passent
-  partout ; certains MKV ou pistes AC-3 sont refusés. Le message d'erreur le dit clairement.
+- **MP4 volumineux avec audio AAC** : lecture progressive par blocs de 1 Mio,
+  puis décodage de la piste audio seule. Le navigateur doit toujours pouvoir décoder l’AAC.
+  Les petits conteneurs non pris en charge conservent le décodage natif ; au-delà de
+  32 Mio, un échec du lecteur MP4 affiche un message au lieu de charger toute la vidéo.
+- **Décodage** : Prism s'appuie sur les codecs du navigateur. La prise en charge de MP4/AAC, WebM, MP3, WAV, OGG et des autres formats
+  dépend du navigateur et de son décodeur ; certains conteneurs vidéo ou pistes AC-3 peuvent être refusés. Le message d'erreur le dit clairement.
 - **MP4/M4A** : encodé par `MediaRecorder`, donc **en temps réel** (une minute d'audio = une minute
   d'attente) et seulement là où `audio/mp4` est pris en charge (Safari, Chrome récent sur Android).
   Ailleurs, le bouton est désactivé.
-- **Gros fichiers** : le décodage charge tout en mémoire. Au-delà d'environ 1 h d'audio sur mobile,
+- **Gros fichiers** : la piste audio décodée reste en mémoire, même avec le nouveau lecteur MP4. Au-delà d'environ 1 h d'audio sur mobile,
   l'onglet peut manquer de mémoire.
 - **ZIP** : archive sans compression (méthode « stored »), ce qui est le bon choix pour des fichiers
   audio déjà compressés.
@@ -269,3 +277,17 @@ Seules les URL pointant directement vers un fichier média sont acceptées.
 
 Cette mention figure aussi dans l'interface, en bas de page. Garde-la : c'est ce qui distingue
 un outil de conversion légitime d'un outil de contournement.
+
+## Tests automatisés
+
+`npm test` lance les tests Node sans dépendance npm. Les contrôles de fichiers audio demandent
+`ffprobe` (FFmpeg), et la vérification du ZIP demande Python 3. Ils ne remplacent pas
+les essais de décodage natif sur les navigateurs et appareils visés.
+
+Encodeur MP3 fourni sans modification : lamejs 1.2.1, projet
+https://github.com/zhuker/lamejs, LAME https://lame.sourceforge.io/, sous LGPL.
+La notice du projet est fournie dans `public/vendor/LICENSE-lamejs.txt`.
+
+Lecteur MP4 progressif : MP4Box.js 2.4.1, sous BSD-3-Clause, inclus dans
+`public/vendor/mp4box/` avec sa licence : https://github.com/gpac/mp4box.js.
+Le traitement reste local et ne requiert aucune clé API.
