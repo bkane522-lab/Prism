@@ -72,12 +72,14 @@ h1{font-family:"Chakra Petch",sans-serif;font-weight:300;font-size:34px;letter-s
 #file{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;clip:rect(0 0 0 0);border:0;padding:0}
 
 .url-row{display:flex;align-items:center;gap:8px;padding:6px 6px 6px 18px}
-input[type=text],input[type=url]{flex:1;min-width:0;font:inherit;font-size:13px;color:var(--text);
+input[type=text],input[type=url],input[type=email]{flex:1;min-width:0;font:inherit;font-size:13px;color:var(--text);
   background:transparent;border:0;outline:none}
 input::placeholder{color:var(--dim)}
 .mini{flex:0 0 auto;padding:11px 18px;font:inherit;font-size:11px;letter-spacing:.18em;text-transform:uppercase;
   color:#fff;cursor:pointer;border:1px solid rgba(34,211,238,.5);border-radius:var(--radius);
   background:linear-gradient(90deg,rgba(34,211,238,.22),rgba(177,76,255,.22));transition:.2s}
+button:disabled,input:disabled,select:disabled{opacity:.45;cursor:wait}
+#drop[aria-disabled="true"]{opacity:.45;cursor:wait}
 .mini:hover{box-shadow:0 0 24px -8px var(--cyan)}
 .mini.ghost{background:transparent;border-color:var(--edge);color:var(--muted)}
 .sep{display:flex;align-items:center;gap:12px;margin:16px 2px 0;color:var(--dim);font-size:10px;letter-spacing:.28em}
@@ -185,6 +187,8 @@ footer{text-align:center;color:var(--dim);font-size:11px;letter-spacing:.14em;ma
   </div>
   <p class="note" id="urlNote">L'adresse doit pointer vers un fichier média direct que tu es autorisé à utiliser.</p>
 
+  <p class="note" id="importNote" role="status" aria-live="polite"></p>
+
   <section id="stage" class="hidden">
 
     <div class="eyebrow">Source</div>
@@ -265,7 +269,7 @@ footer{text-align:center;color:var(--dim);font-size:11px;letter-spacing:.14em;ma
 
     <button class="cta" id="go">Extraire l'audio</button>
     <div class="bar"><i id="prog"></i></div>
-    <p class="note" id="note">Prêt.</p>
+    <p class="note" id="note" role="status" aria-live="polite">Prêt.</p>
     <a class="dl hidden" id="dl" download>Télécharger<span class="val" id="dlSize"></span></a>
 
     <div class="eyebrow">Extraits multiples <span class="badge">PRO</span></div>
@@ -298,6 +302,9 @@ footer{text-align:center;color:var(--dim);font-size:11px;letter-spacing:.14em;ma
     Prism s'utilise uniquement avec des fichiers qui t'appartiennent, dont tu as l'autorisation, ou libres de droits.
     L'application ne contourne aucune protection technique et ne prend pas en charge les plateformes de streaming protégées.
     Aucun fichier n'est téléversé : tout le traitement a lieu dans ton navigateur.
+    L'e-mail saisi pour activer Pro est transmis au serveur pour vérifier l'achat Gumroad.
+    Encodeur MP3 : <a href="https://lame.sourceforge.io/" target="_blank" rel="noopener">LAME</a>,
+    via <a href="https://github.com/zhuker/lamejs" target="_blank" rel="noopener">lamejs 1.2.1</a> (LGPL).
   </div>
 
   <footer>Prism · traitement 100 % local</footer>
@@ -321,6 +328,8 @@ const slug = s => s.normalize("NFD").replace(/[\u0300-\u036f]/g,"")
   .replace(/[^a-zA-Z0-9-_]+/g,"-").replace(/^-+|-+$/g,"").slice(0,60) || "extrait";
 
 function say(msg, kind){
+  $("importNote").textContent = $("stage").classList.contains("hidden") ? msg : "";
+  $("importNote").classList.toggle("err", kind === "err");
   const n = $("note");
   n.textContent = msg;
   n.classList.toggle("err", kind === "err");
@@ -345,7 +354,7 @@ let mp3Ready = false;
   const s = document.createElement("script");
   s.src = LAME_SOURCES[i];
   s.onload = () => {
-    if(typeof lamejs !== "undefined" && lamejs.Mp3Encoder) mp3Ready = true;
+    if(typeof lamejs !== "undefined" && lamejs.Mp3Encoder){ mp3Ready = true; syncControls(); }
     else loadLame(i+1);
   };
   s.onerror = () => loadLame(i+1);
@@ -367,6 +376,7 @@ const drop = $("drop"), picker = $("file"), ACCEPT = picker.getAttribute("accept
 let audioCtx = null;
 
 function openPicker(all){
+  if(state.busy) return;
   if(all) picker.removeAttribute("accept"); else picker.setAttribute("accept", ACCEPT);
   picker.value = "";
   picker.click();
@@ -383,20 +393,45 @@ picker.addEventListener("change", e => { const f = e.target.files[0]; if(f) load
 drop.addEventListener("drop", e => { const f = e.dataTransfer.files[0]; if(f) load(f); });
 
 async function load(file){
+  if(state.busy) return;
+  setBusy(true);
   stopPlayback();
   $("dl").classList.add("hidden");
   $("dlZip").classList.add("hidden");
   say("Lecture du fichier…");
-  state.name = slug(file.name.replace(/\.[^.]+$/, ""));
+  let decoded;
   try{
-    const data = await file.arrayBuffer();
+    let data;
+    if(/\.(mp4|mov|m4a|m4v|3gp)$/i.test(file.name)){
+      try{
+        say("Lecture de la piste audio…");
+        const reader = await import("./mp4-audio.js");
+        data = await reader.extractMp4Audio(file, p => {
+          say(`Lecture de la piste audio… ${Math.round(p * 100)} %`);
+        });
+      }catch(err){
+        // Préserve le décodage natif pour les petits conteneurs non AAC.
+        if(file.size > 32 * 1024 * 1024){
+          err.prismImportMessage = err.message || "Cette vidéo n’a pas pu être lue. Essaie une version plus courte.";
+          throw err;
+        }
+        data = await file.arrayBuffer();
+      }
+    }else{
+      data = await file.arrayBuffer();
+    }
+    say("Préparation de l’audio…");
     audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
-    state.buffer = await audioCtx.decodeAudioData(data);
+    decoded = await audioCtx.decodeAudioData(data);
   }catch(err){
     console.error(err);
-    say("Ce fichier n'a pas pu être décodé. Essaie un MP4, WEBM, MOV, MP3, M4A ou WAV.", "err");
+    say(err.prismImportMessage || "Ce fichier n'a pas pu être décodé. Essaie un MP4, WEBM, MOV, MP3, M4A ou WAV.", "err");
     return;
+  }finally{
+    setBusy(false);
   }
+  state.buffer = decoded;
+  state.name = slug(file.name.replace(/\.[^.]+$/, ""));
   const b = state.buffer;
   state.marks = [];
   renderMarks();
@@ -418,6 +453,7 @@ $("fetchBtn").addEventListener("click", loadFromUrl);
 $("url").addEventListener("keydown", e => { if(e.key === "Enter") loadFromUrl(); });
 
 async function loadFromUrl(){
+  if(state.busy) return;
   const raw = $("url").value.trim();
   const note = $("urlNote");
   if(!raw) return;
@@ -446,6 +482,7 @@ async function loadFromUrl(){
   }
 
   note.textContent = "Téléchargement…";
+  setBusy(true);
   try{
     const res = await fetch(u.href, { mode:"cors" });
     if(!res.ok) throw new Error("HTTP " + res.status);
@@ -466,11 +503,14 @@ async function loadFromUrl(){
     }
     const base = decodeURIComponent(u.pathname.split("/").pop()) || "audio-distant.mp3";
     note.textContent = "Lien chargé.";
+    setBusy(false);
     await load(new File(chunks, base));
   }catch(err){
     console.error(err);
     note.classList.add("err");
     note.textContent = "Lien inaccessible : le serveur bloque le CORS ou le fichier n'existe pas. Télécharge-le, puis dépose-le ici.";
+  }finally{
+    setBusy(false);
   }
 }
 
@@ -571,6 +611,7 @@ function startPlayback(){
   playNode.onended = stopPlayback;
   playT0 = audioCtx.currentTime - s;
   playing = true; $("play").textContent = "❚❚";
+  $("play").setAttribute("aria-label", "Arrêter la lecture");
   (function loop(){
     if(!playing) return;
     const t = audioCtx.currentTime - playT0;
@@ -583,6 +624,7 @@ function stopPlayback(){
   if(playNode){ try{ playNode.onended = null; playNode.stop(); }catch(_){} playNode = null; }
   playing = false; cancelAnimationFrame(raf);
   $("play").textContent = "▶"; $("tPos").textContent = "0:00";
+  $("play").setAttribute("aria-label", "Écouter la sélection");
   drawWave();
 }
 
@@ -595,7 +637,19 @@ const M4A_MIME = (function(){
   for(const m of list){ try{ if(MediaRecorder.isTypeSupported(m)) return m; }catch(_){} }
   return null;
 })();
-if(!M4A_MIME) $("btnM4a").disabled = true;
+function syncControls(){
+  document.querySelectorAll("#stage button, #stage input, #stage select").forEach(el => {
+    el.disabled = state.busy || (!state.pro && !!el.closest(".pro-zone"));
+  });
+  const mp3 = document.querySelector('#fmt button[data-fmt="mp3"]');
+  mp3.disabled = state.busy || !mp3Ready;
+  $("btnM4a").disabled = state.busy || !M4A_MIME;
+  ["browseAll", "file", "url", "fetchBtn", "licOff"].forEach(id => { $(id).disabled = state.busy; });
+  drop.setAttribute("aria-disabled", String(state.busy));
+  drop.tabIndex = state.busy ? -1 : 0;
+}
+function setBusy(on){ state.busy = on; syncControls(); }
+syncControls();
 
 $("fmt").addEventListener("click", e => {
   const b = e.target.closest("button");
@@ -725,8 +779,7 @@ async function encode(buf, onProgress){
 $("go").addEventListener("click", async () => {
   if(!state.buffer || state.busy) return;
   stopPlayback();
-  state.busy = true;
-  $("go").disabled = true;
+  setBusy(true);
   $("dl").classList.add("hidden");
   setProgress(6);
   say(state.format === "m4a" ? "Encodage MP4 en temps réel…" : "Découpe…");
@@ -750,9 +803,8 @@ $("go").addEventListener("click", async () => {
     say(err.message || "L'extraction a échoué. Réduis la sélection ou essaie en WAV.", "err");
     setProgress(0);
   }finally{
-    state.busy = false;
-    $("go").disabled = false;
-    setTimeout(() => setProgress(0), 2500);
+    setBusy(false);
+    setTimeout(() => { if(!state.busy) setProgress(0); }, 2500);
   }
 });
 
@@ -795,8 +847,7 @@ $("exportAll").addEventListener("click", async () => {
   if(!window.PrismPro || !window.PrismPro.zip){ say("Module Pro absent. Réactive ta licence.", "err"); return; }
 
   stopPlayback();
-  state.busy = true;
-  $("exportAll").disabled = true;
+  setBusy(true);
   $("dlZip").classList.add("hidden");
   const files = [];
   try{
@@ -823,9 +874,8 @@ $("exportAll").addEventListener("click", async () => {
     say(err.message || "L'export groupé a échoué.", "err");
     setProgress(0);
   }finally{
-    state.busy = false;
-    $("exportAll").disabled = false;
-    setTimeout(() => setProgress(0), 2500);
+    setBusy(false);
+    setTimeout(() => { if(!state.busy) setProgress(0); }, 2500);
   }
 });
 
@@ -834,6 +884,9 @@ $("exportAll").addEventListener("click", async () => {
 ===================================================================== */
 const LIC = { key:"prism.lic.email", code:"prism.lic.code", at:"prism.lic.at", who:"prism.lic.who" };
 const RECHECK_MS = 14 * 24 * 3600 * 1000;
+let swDone = false;
+let installEvent = null;
+let licenseGeneration = 0;
 
 const MESSAGES = {
   invalid:  "Cette adresse e-mail n'est pas valide.",
@@ -856,13 +909,15 @@ document.querySelectorAll(".pro-zone").forEach(z => z.addEventListener("click", 
 
 function setPro(on, who){
   state.pro = on;
+  if(!on && state.format === "m4a") setFormat(mp3Ready ? "mp3" : "wav");
+  $("installBtn").classList.toggle("hidden", !on || !installEvent);
+  syncControls();
   if(!on) $("buyBtn").classList.remove("hidden");
   document.querySelectorAll(".pro-zone").forEach(z => z.setAttribute("data-locked", String(!on)));
   $("licRow").classList.toggle("hidden", on);
   $("licActive").classList.toggle("hidden", !on);
   if(on){
     $("licWho").textContent = who ? `Licence active · ${who}` : "Licence active";
-    if(M4A_MIME) $("btnM4a").disabled = false;
     $("buyBtn").classList.add("hidden");
     registerServiceWorker();
   }
@@ -889,7 +944,8 @@ async function verify(email){
   const res = await fetch("/api/license", {
     method:"POST",
     headers:{ "Content-Type":"application/json" },
-    body: JSON.stringify({ email })
+    body: JSON.stringify({ email }),
+    signal: AbortSignal.timeout(15000)
   });
   let data = {};
   try{ data = await res.json(); }catch(_){}
@@ -897,13 +953,17 @@ async function verify(email){
 }
 
 $("licBtn").addEventListener("click", async () => {
+  if(state.busy || $("licBtn").disabled) return;
+  const generation = ++licenseGeneration;
   const email = $("licKey").value.trim().toLowerCase();
   const note = $("licNote");
   if(!email){ note.classList.add("err"); note.textContent = "Saisis l'e-mail utilisé lors de l'achat."; return; }
   note.classList.remove("err");
   note.textContent = "Vérification…";
+  $("licBtn").disabled = true;
   try{
     const { data } = await verify(email);
+    if(generation !== licenseGeneration) return;
     if(!data.ok){
       note.classList.add("err");
       note.textContent = MESSAGES[data.reason] || MESSAGES.notfound;
@@ -922,10 +982,14 @@ $("licBtn").addEventListener("click", async () => {
     console.error(err);
     note.classList.add("err");
     note.textContent = MESSAGES.offline;
+  }finally{
+    $("licBtn").disabled = false;
   }
 });
 
 $("licOff").addEventListener("click", () => {
+  if(state.busy) return;
+  licenseGeneration++;
   clearLicense();
   state.pro = false;
   delete window.PrismPro;
@@ -937,6 +1001,7 @@ $("licOff").addEventListener("click", () => {
 
 /* Réactivation au chargement : code en cache, puis revérification espacée */
 (async function restoreLicense(){
+  const generation = licenseGeneration;
   let email, code, at, who;
   try{
     email = localStorage.getItem(LIC.key);
@@ -951,9 +1016,11 @@ $("licOff").addEventListener("click", () => {
   if(Date.now() - at < RECHECK_MS || !navigator.onLine) return;
   try{
     const { data } = await verify(email);
-    if(data.ok){
+    if(generation !== licenseGeneration) return;
+    if(data.ok && !state.busy && runProCode(data.code)){
       storeLicense(email, data.code, data.buyer);
-    }else if(data.reason === "refunded" || data.reason === "notfound"){
+      setPro(true, data.buyer);
+    }else if(!state.busy && (data.reason === "refunded" || data.reason === "notfound")){
       clearLicense();
       delete window.PrismPro;
       setPro(false);
@@ -966,21 +1033,19 @@ $("licOff").addEventListener("click", () => {
 /* =====================================================================
    Hors ligne (Pro) et installation
 ===================================================================== */
-let swDone = false;
 function registerServiceWorker(){
   if(swDone || !("serviceWorker" in navigator)) return;
   swDone = true;
-  navigator.serviceWorker.register("/sw.js").catch(err => console.warn("SW:", err));
+  navigator.serviceWorker.register("/sw.js").catch(err => { swDone = false; console.warn("SW:", err); });
 }
 
-let installEvent = null;
 window.addEventListener("beforeinstallprompt", e => {
   e.preventDefault();
   installEvent = e;
   if(state.pro) $("installBtn").classList.remove("hidden");
 });
 $("installBtn").addEventListener("click", async () => {
-  if(!installEvent) return;
+  if(!state.pro || !installEvent) return;
   installEvent.prompt();
   await installEvent.userChoice;
   installEvent = null;
