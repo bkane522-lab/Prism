@@ -1,4 +1,4 @@
-const CACHE = "prism-v1.0.2";
+const CACHE = "prism-v1.0.3";
 const SHELL = ["/", "/index.html", "/manifest.webmanifest", "/icons/icon.svg",
   "/mp4-audio.js", "/vendor/mp4box/mp4box.all.mjs",
   "/vendor/mp4box/styp-9TIZZDLN.mjs", "/vendor/mp4box/rolldown-runtime-w6R9maHv.mjs",

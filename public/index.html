@@ -307,7 +307,7 @@ footer{text-align:center;color:var(--dim);font-size:11px;letter-spacing:.14em;ma
     via <a href="https://github.com/zhuker/lamejs" target="_blank" rel="noopener">lamejs 1.2.1</a> (LGPL).
   </div>
 
-  <footer>Prism · traitement 100 % local</footer>
+  <footer>Prism · 1.0.3 · traitement 100 % local</footer>
 </main>
 
 <script>
@@ -392,6 +392,49 @@ picker.addEventListener("change", e => { const f = e.target.files[0]; if(f) load
 ["dragleave","drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("hot"); }));
 drop.addEventListener("drop", e => { const f = e.dataTransfer.files[0]; if(f) load(f); });
 
+function importMp4Reader(){ return import("./mp4-audio.js"); }
+
+async function decodeMediaFile(file){
+  const isMp4 = /\.(mp4|mov|m4a|m4v|3gp)$/i.test(file.name);
+  const isSmall = file.size <= 32 * 1024 * 1024;
+  audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+  let nativeError;
+  // Les petits fichiers conservent leur conteneur d’origine quand il est lisible.
+  if(!isMp4 || isSmall){
+    say("Lecture du fichier…");
+    let original;
+    try{ original = await file.arrayBuffer(); }
+    catch(err){
+      err.prismImportMessage = `Le fichier « ${file.name} » n’a pas pu être lu (${err.name || "erreur"}). Essaie de le sélectionner depuis les fichiers enregistrés sur ton appareil.`;
+      throw err;
+    }
+    say("Préparation de l’audio…");
+    try{ return await audioCtx.decodeAudioData(original); }
+    catch(err){
+      if(!isMp4) throw err;
+      nativeError = err;
+    }
+  }
+  let reader;
+  try{ reader = await importMp4Reader(); }
+  catch(err){
+    err.prismImportMessage = "Le lecteur vidéo n’est pas disponible. Recharge la page avec une connexion Internet (PRISM 1.0.3).";
+    throw err;
+  }
+  let audio;
+  try{
+    audio = await reader.extractMp4Audio(file, p => {
+      say(`Lecture de la piste audio… ${Math.round(p * 100)} %`);
+    });
+  }catch(err){
+    if(nativeError) throw nativeError;
+    err.prismImportMessage = err.message || "La piste audio n’a pas pu être extraite.";
+    throw err;
+  }
+  say("Préparation de l’audio…");
+  return await audioCtx.decodeAudioData(audio);
+}
+
 async function load(file){
   if(state.busy) return;
   setBusy(true);
@@ -401,31 +444,10 @@ async function load(file){
   say("Lecture du fichier…");
   let decoded;
   try{
-    let data;
-    if(/\.(mp4|mov|m4a|m4v|3gp)$/i.test(file.name)){
-      try{
-        say("Lecture de la piste audio…");
-        const reader = await import("./mp4-audio.js");
-        data = await reader.extractMp4Audio(file, p => {
-          say(`Lecture de la piste audio… ${Math.round(p * 100)} %`);
-        });
-      }catch(err){
-        // Préserve le décodage natif pour les petits conteneurs non AAC.
-        if(file.size > 32 * 1024 * 1024){
-          err.prismImportMessage = err.message || "Cette vidéo n’a pas pu être lue. Essaie une version plus courte.";
-          throw err;
-        }
-        data = await file.arrayBuffer();
-      }
-    }else{
-      data = await file.arrayBuffer();
-    }
-    say("Préparation de l’audio…");
-    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
-    decoded = await audioCtx.decodeAudioData(data);
+    decoded = await decodeMediaFile(file);
   }catch(err){
     console.error(err);
-    say(err.prismImportMessage || "Ce fichier n'a pas pu être décodé. Essaie un MP4, WEBM, MOV, MP3, M4A ou WAV.", "err");
+    say(err.prismImportMessage || `« ${file.name} » n’a pas pu être décodé par ce navigateur (${err.name || "erreur"} · PRISM 1.0.3). Essaie d’ouvrir le site dans Chrome et de sélectionner le même fichier.`, "err");
     return;
   }finally{
     setBusy(false);
